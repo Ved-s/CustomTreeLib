@@ -15,7 +15,7 @@
     "Tree testing": {
       "commandName": "Executable",
       "executablePath": "dotnet",
-      "commandLineArgs": "$(tMLPath) -skipselect \"Tester:Tree testing 2\"",
+      "commandLineArgs": "$(tMLPath) -skipselect \"Tester:Tree testing 3\"",
       "workingDirectory": "$(tMLSteamPath)"
     }
   }
