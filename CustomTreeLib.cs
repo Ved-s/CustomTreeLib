@@ -20,15 +20,22 @@ namespace CustomTreeLib
         public override string SaplingTexture => "CustomTreeLib/ExampleSapling";
         public override string AcornTexture => "CustomTreeLib/ExampleAcorn";
         public override string TileTexture => "Terraria/Images/Tiles_583";
-    
         public override string TopTexture => "Terraria/Images/Tree_Tops_30";
         public override string BranchTexture => "Terraria/Images/Tree_Branches_26";
-    
+
+        // either Leaf Texture or LeafType (to tree leaf gore) can be set
+        public override string LeafTexture => "CustomTreeLib/ExampleLeaf";
+
         public override int[] ValidGroundTiles => new int[] { TileID.Grass };
-    
-        public override int Leaf => GoreID.TreeLeaf_GemTreeAmber;
 
         public override int SaplingStyles => 3;
+        public override int GrowChance => 1;
+
+        public override Color? MapColor => Color.Yellow;
+        public override string MapName => "Example Tree";
+
+        public override Color? SaplingMapColor => Color.Orange;
+        public override string SaplingMapName => "Example Sapling";
 
         public override bool Shake(int x, int y, ref bool createLeaves)
         {

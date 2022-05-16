@@ -216,10 +216,11 @@ namespace CustomTreeLib
 
             c.Index = 0;
 
-            int texture = -1;
+            int color = -1, texture = -1;
 
             while (c.TryGotoNext(
                 MoveType.After,
+                x=>x.MatchLdloc(out color),
                 x=>x.MatchCall<TileDrawing>("GetTreeBranchTexture"),
                 x=>x.MatchStloc(out texture)
                 ))
@@ -230,12 +231,30 @@ namespace CustomTreeLib
                 c.Emit<Patches>(OpCodes.Call, nameof(GetTexturesHook));
 
                 branchPatches++;
+
+                if (c.TryGotoNext(x => x.MatchCallvirt<SpriteBatch>("Draw")))
+                {
+                    c.Emit(OpCodes.Ldloc, type);
+                    c.Emit(OpCodes.Ldc_I4_1);
+                    c.Emit(OpCodes.Ldloc, color);
+                    c.Emit<Patches>(OpCodes.Call, nameof(BeforeDrawTexture));
+                    c.Index++;
+                    c.Emit(OpCodes.Ldloc, type);
+                    c.Emit(OpCodes.Ldc_I4_1);
+                    c.Emit(OpCodes.Ldloc, color);
+                    c.Emit<Patches>(OpCodes.Call, nameof(AfterDrawTexture));
+                }
+                else
+                {
+                    Mod.Logger.WarnFormat("Patch error: expected SpriteBatch.Draw after GetTreeBranchTexture in DrawTrees:HookTopDraws");
+                }
             }
 
             c.Index = 0;
 
             while (c.TryGotoNext(
                 MoveType.After,
+                x => x.MatchLdloc(out color),
                 x => x.MatchCall<TileDrawing>("GetTreeTopTexture"),
                 x => x.MatchStloc(out texture)
                 ))
@@ -246,17 +265,34 @@ namespace CustomTreeLib
                 c.Emit<Patches>(OpCodes.Call, nameof(GetTexturesHook));
 
                 topPatches++;
+
+                if (c.TryGotoNext(x => x.MatchCallvirt<SpriteBatch>("Draw")))
+                {
+                    c.Emit(OpCodes.Ldloc, type);
+                    c.Emit(OpCodes.Ldc_I4_0);
+                    c.Emit(OpCodes.Ldloc, color);
+                    c.Emit<Patches>(OpCodes.Call, nameof(BeforeDrawTexture));
+                    c.Index++;
+                    c.Emit(OpCodes.Ldloc, type);
+                    c.Emit(OpCodes.Ldc_I4_0);
+                    c.Emit(OpCodes.Ldloc, color);
+                    c.Emit<Patches>(OpCodes.Call, nameof(AfterDrawTexture));
+                }
+                else 
+                {
+                    Mod.Logger.WarnFormat("Patch error: expected SpriteBatch.Draw after GetTreeTopTexture in DrawTrees:HookTopDraws");
+                }
             }
 
             if (branchPatches < 2)
             {
-                if (branchPatches == 0) Mod.Logger.WarnFormat("Patch error: {0} (DrawTrees:GetTreeBranchTexturePatch)", il.Method.FullName);
-                else Mod.Logger.WarnFormat("Patch warning: expected 2 patches in {0} (DrawTrees:GetTreeBranchTexturePatch), got {1}", il.Method.FullName, topPatches);
+                if (branchPatches == 0) Mod.Logger.WarnFormat("Patch error: DrawTrees:GetTreeBranchTexturePatch");
+                else Mod.Logger.WarnFormat("Patch warning: expected 2 patches in DrawTrees:GetTreeBranchTexturePatch, got {1}", topPatches);
             }
             if (topPatches < 2)
             {
-                if (topPatches == 0) Mod.Logger.WarnFormat("Patch error: {0} (DrawTrees:GetTreeTopTexturePatch)", il.Method.FullName);
-                else Mod.Logger.WarnFormat("Patch warning: expected 2 patches in {0} (DrawTrees:GetTreeTopTexturePatch), got {1}", il.Method.FullName, topPatches);
+                if (topPatches == 0) Mod.Logger.WarnFormat("Patch error: DrawTrees:GetTreeTopTexturePatch");
+                else Mod.Logger.WarnFormat("Patch warning: expected 2 patches in DrawTrees:GetTreeTopTexturePatch, got {1}", topPatches);
             }
         }
 
@@ -290,6 +326,23 @@ namespace CustomTreeLib
             {
                 texture = tree.GetFoliageTexture(branch);
             }
+        }
+
+        private static void BeforeDrawTexture(ushort type, bool branch, byte tileColor)
+        {
+            if (!CustomTree.ByTileType.TryGetValue(type, out CustomTree tree) || tree?.PaintingSettings is null) return;
+
+            Main.spriteBatch.End();
+            Main.spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, Main.DefaultSamplerState, DepthStencilState.None, Main.Rasterizer, null, Main.Transform);
+
+            tree.PaintingSettings.ApplyShader(tileColor, Main.tileShader);
+        }
+        private static void AfterDrawTexture(ushort type, bool branch, byte tileColor)
+        {
+            if (!CustomTree.ByTileType.ContainsKey(type)) return;
+
+            Main.spriteBatch.End();
+            Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState, DepthStencilState.None, Main.Rasterizer, null, Main.Transform);
         }
     }
 }
