@@ -17,8 +17,6 @@ namespace CustomTreeLib
 {
     public abstract class CustomTree : ILoadable
     {
-        //TODO: tree map color
-
         public static List<CustomTree> LoadedTrees = new();
 
         public static Dictionary<int, CustomTree> ByTileType = new();
@@ -47,6 +45,12 @@ namespace CustomTreeLib
         public virtual int FoliageStyleFallback => 0;
 
         public virtual int GrowChance { get; set; } = 5;
+        public virtual int RootChance { get; set; } = 2;
+        public virtual int MoreBarkChance { get; set; } = 7;
+        public virtual int LessBarkChance { get; set; } = 7;
+        public virtual int BranchChance { get; set; } = 4;
+        public virtual int NotLeafyBranchChance { get; set; } = 3;
+        public virtual int BrokenTopChance { get; set; } = 13;
 
         public virtual  int MinHeight { get; set; } = 8;
         public virtual  int MaxHeight { get; set; } = 20;
@@ -106,7 +110,7 @@ namespace CustomTreeLib
             {
                 SaplingTileType = Sapling.Type,
                 TreeTileType = Tile.Type,
-                GroundTest = ValidGroundTile,
+                GroundTest = ValidGroundType,
                 TreeHeightMax = MaxHeight,
                 TreeHeightMin = MinHeight,
                 TreeTopPaddingNeeded = TopPadding,
@@ -114,24 +118,30 @@ namespace CustomTreeLib
             };
         }
 
-        public virtual bool ValidGroundTile(int tile) => ValidGroundTiles.Contains(tile);
+        public virtual bool ValidGroundType(int tile) => ValidGroundTiles.Contains(tile);
         public virtual bool ValidWallType(int tile) => ValidWalls.Contains(tile);
 
         public virtual void Grow(int x, int y) 
         {
-            if (WorldGen.GrowTreeWithSettings(x, y, GetTreeGrowSettings()) && WorldGen.PlayerLOS(x, y))
+            //if (WorldGen.GrowTreeWithSettings(x, y, GetTreeGrowSettings()) && WorldGen.PlayerLOS(x, y))
+            if (TreeGrowing.GrowTree(x, y, this) && WorldGen.PlayerLOS(x, y))
             {
                 WorldGen.TreeGrowFXCheck(x, y);
             }
         }
         public virtual bool Shake(int x, int y, ref bool createLeaves) => true;
         public virtual bool Drop(int x, int y) => true;
+        public virtual void TileFrame(int x, int y)
+        {
+            WorldGen.CheckTreeWithSettings(x, y, new() { IsGroundValid = ValidGroundType });
+        }
+        public virtual void RandomUpdate(int x, int y) { }
+
         public virtual void GetTreeLeaf(int x, Tile topTile, Tile t, ref int treeHeight, out int treeFrame, out int passStyle) 
         {
             treeFrame = 0;
             passStyle = LeafType;
         }
-
         public virtual bool GetTreeFoliageData(int i, int j, int xoffset, ref int treeFrame, out int floorY, out int topTextureFrameWidth, out int topTextureFrameHeight)
         {
             int v = 0;
@@ -150,18 +160,6 @@ namespace CustomTreeLib
                 TopTextureCache = ModContent.Request<Texture2D>(TopTexture, AssetRequestMode.ImmediateLoad).Value;
             return TopTextureCache;
 
-        }
-
-        public bool TileFrame(int i, int j)
-        {
-            WorldGen.CheckTreeWithSettings(i, j, new() { IsGroundValid = ValidGroundTile });
-            return false;
-        }
-
-        public static bool IsBranchTile(int x, int y)
-        {
-            Tile t = Main.tile[x, y];
-            return t.TileFrameX >= 22 && t.TileFrameY >= 198;
         }
     }
 
@@ -350,7 +348,17 @@ namespace CustomTreeLib
             }
         }
 
-        public override bool TileFrame(int i, int j, ref bool resetFrame, ref bool noBreak) => Tree.TileFrame(i, j);
+        public override void RandomUpdate(int i, int j)
+        {
+            Tree.RandomUpdate(i, j);
+        }
+
+        public override bool TileFrame(int i, int j, ref bool resetFrame, ref bool noBreak)
+        {
+            Tree.TileFrame(i, j);
+            return false;
+        }
+
         public override bool Drop(int i, int j) => Tree.Drop(i, j);
     }
 

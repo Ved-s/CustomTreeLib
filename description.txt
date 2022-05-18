@@ -1,2 +1,4 @@
 Custom Tree Library allows modders to easily add new customizable trees.
 Refer to the Example Tree at mod's GitHub page (homepage).
+
+Warning! Unloaded trees are still broken and any interacting with them results in game crash
