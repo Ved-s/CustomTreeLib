@@ -49,7 +49,7 @@ namespace CustomTreeLib
         {
             Point frame = new(t.TileFrameX, t.TileFrameY);
 
-            int style = (frame.Y & 66) / 22;
+            int style = (frame.Y & 66) / 22 % 3;
             frame.Y /= 66;
             frame.X /= 22;
 

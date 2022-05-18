@@ -52,8 +52,8 @@ namespace CustomTreeLib
         public virtual int NotLeafyBranchChance { get; set; } = 3;
         public virtual int BrokenTopChance { get; set; } = 13;
 
-        public virtual  int MinHeight { get; set; } = 8;
-        public virtual  int MaxHeight { get; set; } = 20;
+        public virtual  int MinHeight { get; set; } = 5;
+        public virtual  int MaxHeight { get; set; } = 12;
 
         public virtual int TopPadding { get; set; } = 4;
         public virtual int SaplingStyles { get; set; } = 1;
@@ -129,13 +129,29 @@ namespace CustomTreeLib
                 WorldGen.TreeGrowFXCheck(x, y);
             }
         }
+        public virtual bool CanGrowMore(int topX, int topY, TreeStats stats) 
+        {
+            return stats.LeafyBranches < 3 && stats.TotalBranches < 5 && stats.TotalBlocks < 25;
+        }
+
         public virtual bool Shake(int x, int y, ref bool createLeaves) => true;
         public virtual bool Drop(int x, int y) => true;
         public virtual void TileFrame(int x, int y)
         {
             WorldGen.CheckTreeWithSettings(x, y, new() { IsGroundValid = ValidGroundType });
         }
-        public virtual void RandomUpdate(int x, int y) { }
+        public virtual void RandomUpdate(int x, int y)
+        {
+            int i = y;
+            //while (TileID.Sets.IsATreeTrunk[Main.tile[x, i].TileType])
+            //{
+            //    i--;
+            //}
+            //i++;
+            TreeTileInfo info = TreeTileInfo.GetInfo(x, i);
+            if (info.Type == TreeTileType.LeafyTop && CanGrowMore(x, i, TreeGrowing.GetTreeStats(x, i)))
+                TreeGrowing.TryGrowHigher(x, y, this);
+        }
 
         public virtual void GetTreeLeaf(int x, Tile topTile, Tile t, ref int treeHeight, out int treeFrame, out int passStyle) 
         {
@@ -161,6 +177,8 @@ namespace CustomTreeLib
             return TopTextureCache;
 
         }
+
+        
     }
 
     public abstract class CustomTree<TAcornItem> : CustomTree where TAcornItem : CustomTreeAcorn, new()
