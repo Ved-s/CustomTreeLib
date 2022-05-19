@@ -12,6 +12,8 @@ namespace CustomTreeLib
         public bool IsLeafy => Type == TreeTileType.LeafyBranch || Type == TreeTileType.LeafyTop;
         public bool IsWoody => !IsLeafy;
 
+        public bool IsCenter => Type != TreeTileType.Branch && Type != TreeTileType.LeafyBranch && Type != TreeTileType.Root;
+
         public bool WithBranches => Type == TreeTileType.WithBranches || Type == TreeTileType.TopWithBranches;
         public bool WithRoots => Type == TreeTileType.WithRoots || Type == TreeTileType.TopWithRoots;
 

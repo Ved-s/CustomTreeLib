@@ -1,4 +1,4 @@
 displayName = Custom Tree Library
 homepage = https://github.com/Ved-s/CustomTreeLib
 author = Ved_s
-version = 0.5.1
+version = 0.5.2

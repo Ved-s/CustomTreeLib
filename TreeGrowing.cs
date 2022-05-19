@@ -154,6 +154,7 @@ namespace CustomTreeLib
 			if (left) return TreeTileSide.Left;
 			return TreeTileSide.Right;
 		}
+
 		public static void SetSide(TreeTileSide side, out bool left, out bool right)
 		{
 			left = right = false;
@@ -167,6 +168,50 @@ namespace CustomTreeLib
 		{
 			TreeStats stats = new();
 
+			foreach (PositionedTreeTile tile in EnumerateTreeTiles(x, y)) 
+			{
+				stats.TotalBlocks++;
+
+				switch (tile.Info.Type)
+				{
+					case TreeTileType.Branch:
+						stats.TotalBranches++;
+						break;
+
+					case TreeTileType.LeafyBranch:
+						stats.TotalBranches++;
+						stats.LeafyBranches++;
+						break;
+
+					case TreeTileType.Root:
+						if (tile.Info.Side == TreeTileSide.Left) stats.LeftRoot = true;
+						else stats.RightRoot = true;
+						break;
+
+					case TreeTileType.BrokenTop:
+						stats.HasTop = true;
+						stats.BrokenTop = true;
+						break;
+
+					case TreeTileType.LeafyTop:
+						stats.HasTop = true;
+						break;
+				}
+				if (tile.Info.IsCenter) 
+				{
+					stats.Bottom.X = tile.Pos.X;
+					stats.Top.X = tile.Pos.X;
+
+					stats.Top.Y = Math.Min(tile.Pos.Y, stats.Top.Y);
+					stats.Bottom.Y = Math.Max(tile.Pos.Y, stats.Bottom.Y);
+				}
+			}
+			stats.GroundType = Framing.GetTileSafely(stats.Bottom.X, stats.Bottom.Y + 1).TileType;
+			return stats;
+        }
+
+		public static IEnumerable<PositionedTreeTile> EnumerateTreeTiles(int x, int y) 
+		{
 			HashSet<Point> done = new();
 			Queue<Point> queue = new();
 
@@ -175,7 +220,7 @@ namespace CustomTreeLib
 			while (queue.Count > 0)
 			{
 				Point p = queue.Dequeue();
-				if (done.Contains(p)) 
+				if (done.Contains(p))
 					continue;
 
 				done.Add(p);
@@ -183,66 +228,56 @@ namespace CustomTreeLib
 				Tile t = Main.tile[p.X, p.Y];
 				if (!t.HasTile || !TileID.Sets.IsATreeTrunk[t.TileType]) continue;
 
-				stats.TotalBlocks++;
-
 				TreeTileInfo info = TreeTileInfo.GetInfo(t);
+
+				yield return new(p, info);
 
 				bool left = false;
 				bool right = false;
 				bool up = true;
 				bool down = true;
 
-                switch (info.Type)
-                {
-                    case TreeTileType.WithBranches:
+				switch (info.Type)
+				{
+					case TreeTileType.WithBranches:
 						SetSide(info.Side, out left, out right);
-                        break;
-
-                    case TreeTileType.Branch:
-						up = down = false;
-						SetSide(info.Side, out right, out left);
-						stats.TotalBranches++;
-                        break;
-
-                    case TreeTileType.LeafyBranch:
-						up = down = false;
-						SetSide(info.Side, out right, out left);
-						stats.TotalBranches++;
-						stats.LeafyBranches++;
 						break;
 
-                    case TreeTileType.WithRoots:
+					case TreeTileType.Branch:
+						up = down = false;
+						SetSide(info.Side, out right, out left);
+						break;
+
+					case TreeTileType.LeafyBranch:
+						up = down = false;
+						SetSide(info.Side, out right, out left);
+						break;
+
+					case TreeTileType.WithRoots:
 						down = false;
 						SetSide(info.Side, out left, out right);
 						break;
 
-                    case TreeTileType.Root:
+					case TreeTileType.Root:
 						up = down = false;
 						SetSide(info.Side, out right, out left);
-						if (info.Side == TreeTileSide.Left) stats.LeftRoot = true;
-						else stats.RightRoot = true;
-                        break;
-
-                    case TreeTileType.BrokenTop:
-						up = false;
-						stats.HasTop = true;
-						stats.BrokenTop = true;
-                        break;
-
-                    case TreeTileType.LeafyTop:
-						up = false;
-						stats.HasTop = true;
 						break;
-                }
+
+					case TreeTileType.BrokenTop:
+						up = false;
+						break;
+
+					case TreeTileType.LeafyTop:
+						up = false;
+						break;
+				}
 
 				if (up) queue.Enqueue(new(p.X, p.Y - 1));
 				if (down) queue.Enqueue(new(p.X, p.Y + 1));
 				if (left) queue.Enqueue(new(p.X - 1, p.Y));
 				if (right) queue.Enqueue(new(p.X + 1, p.Y));
-            }
-
-			return stats;
-        }
+			}
+		}
 
 		public static bool TryGrowHigher(int topX, int topY, TreeSettings settings)
 		{
@@ -290,14 +325,21 @@ namespace CustomTreeLib
 		public bool LeftRoot;
 		public bool RightRoot;
 
+		public Point Top = new(0, int.MaxValue);
+		public Point Bottom;
+		public ushort GroundType;
+
         public override string ToString()
         {
-			return $"T: {TotalBlocks} " +
-				$"B: {TotalBranches} " +
-				$"BL: {LeafyBranches} " +
+			return $"T:{TotalBlocks} " +
+				$"B:{TotalBranches} " +
+				$"BL:{LeafyBranches} " +
 				$"{(HasTop?(BrokenTop?"TB ":"TL "):"")}" +
 				$"{(LeftRoot?"Rl ":"")}" +
-				$"{(RightRoot?"Rr ":"")}";
+				$"{(RightRoot?"Rr ":"")}" +
+				$"X:{Top.X} Y:{Top.Y}-{Bottom.Y} G:{GroundType}";
         }
     }
+
+	public record struct PositionedTreeTile(Point Pos, TreeTileInfo Info);
 }
