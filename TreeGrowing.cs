@@ -75,8 +75,18 @@ namespace CustomTreeLib
 
 		public static void PlaceBottom(int x, int y, byte color, TreeSettings settings, bool top) 
 		{
-			bool rootRight = !WorldGen.genRand.NextBool(settings.NoRootChance);
-			bool rootLeft = !WorldGen.genRand.NextBool(settings.NoRootChance);
+			Tile groundRight = Framing.GetTileSafely(x + 1, y + 1);
+			Tile groundLeft = Framing.GetTileSafely(x - 1, y + 1);
+
+			bool rootRight = !WorldGen.genRand.NextBool(settings.NoRootChance)
+				&& groundRight.HasUnactuatedTile 
+				&& !groundRight.IsHalfBlock
+				&& groundRight.Slope == SlopeType.Solid;
+
+			bool rootLeft = !WorldGen.genRand.NextBool(settings.NoRootChance)
+				&& groundLeft.HasUnactuatedTile
+				&& !groundLeft.IsHalfBlock
+				&& groundLeft.Slope == SlopeType.Solid;
 
 			int style = WorldGen.genRand.Next(3);
 
