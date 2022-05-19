@@ -263,6 +263,11 @@ namespace CustomTreeLib
 			PlaceMiddle(topX, topY, t.TileColor, settings);
 			Place(topX, topY-1, info, t.TileColor, settings);
 
+			if (Main.netMode != NetmodeID.Server)
+			{
+				Patches.Instance.TileDrawing_AddSpecialPoint(Main.instance.TilesRenderer, topX, topY - 1, 0);
+			}
+
 			WorldGen.SectionTileFrame(topX - 2, topY - 2, topX + 2, topY + 1);
 			if (Main.netMode == NetmodeID.Server)
 			{

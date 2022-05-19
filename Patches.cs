@@ -13,9 +13,10 @@ namespace CustomTreeLib
     public class Patches : ILoadable
     {
         public Mod Mod { get; private set; }
+        public static Patches Instance => ModContent.GetInstance<Patches>();
 
-        delegate void TileDrawing_AddSpecialPointDelegate(TileDrawing self, int x, int y, int type);
-        TileDrawing_AddSpecialPointDelegate TileDrawing_AddSpecialPoint;
+        public delegate void TileDrawing_AddSpecialPointDelegate(TileDrawing self, int x, int y, int type);
+        public TileDrawing_AddSpecialPointDelegate TileDrawing_AddSpecialPoint;
 
         public void Load(Mod mod)
         {
