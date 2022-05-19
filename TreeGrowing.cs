@@ -14,13 +14,13 @@ namespace CustomTreeLib
 		static bool prevLeftBranch = false;
 		static bool prevRightBranch = false;
 
-        public static bool GrowTree(int x, int y, CustomTree tree)
+        public static bool GrowTree(int x, int y, TreeSettings settings)
         {
 			prevLeftBranch = false;
 			prevRightBranch = false;
 
 			int groundY = y;
-			while (Main.tile[x, groundY].TileType == tree.Sapling.Type)
+			while (TileID.Sets.TreeSapling[Main.tile[x, groundY].TileType] || TileID.Sets.CommonSapling[Main.tile[x, groundY].TileType])
 			{
 				groundY++;
 			}
@@ -33,7 +33,7 @@ namespace CustomTreeLib
 			{
 				return false;
 			}
-			if (!tree.ValidGroundType(ground.TileType) || !tree.ValidWallType(Main.tile[x, groundY - 1].WallType))
+			if (!settings.GroundTypeCheck(ground.TileType) || !settings.WallTypeCheck(Main.tile[x, groundY - 1].WallType))
 			{
 				return false;
 			}
@@ -41,14 +41,14 @@ namespace CustomTreeLib
             Tile groundLeft = Main.tile[x - 1, groundY];
             Tile groundRight = Main.tile[x + 1, groundY];
             if (
-				   (!groundLeft.HasTile  || !tree.ValidGroundType(groundLeft.TileType)) 
-				&& (!groundRight.HasTile || !tree.ValidGroundType(groundRight.TileType)))
+				   (!groundLeft.HasTile  || !settings.GroundTypeCheck(groundLeft.TileType)) 
+				&& (!groundRight.HasTile || !settings.GroundTypeCheck(groundRight.TileType)))
 			{
 				return false;
 			}
 			byte color = Main.tile[x, groundY].TileColor;
-			int treeHeight = WorldGen.genRand.Next(tree.MinHeight, tree.MaxHeight);
-			int treeHeightWithTop = treeHeight + tree.TopPadding;
+			int treeHeight = WorldGen.genRand.Next(settings.MinHeight, settings.MaxHeight);
+			int treeHeightWithTop = treeHeight + settings.TopPaddingNeeded;
 			if (!WorldGen.EmptyTileCheck(x - 2, x + 2, groundY - treeHeightWithTop, groundY - 1, 20))
 			{
 				return false;
@@ -59,9 +59,9 @@ namespace CustomTreeLib
 
 			for (int i = treeBottom; i >= treeTop; i--)
 			{
-				if (i == treeBottom) PlaceBottom(x, i, color, tree, treeHeight == 1);
-				else if (i > treeTop) PlaceMiddle(x, i, color, tree);
-				else PlaceTop(x, i, color, tree);
+				if (i == treeBottom) PlaceBottom(x, i, color, settings, treeHeight == 1);
+				else if (i > treeTop) PlaceMiddle(x, i, color, settings);
+				else PlaceTop(x, i, color, settings);
 			}
 
 			WorldGen.RangeFrame(x - 2, treeTop - 1, x + 2, treeBottom + 1);
@@ -73,25 +73,25 @@ namespace CustomTreeLib
 			return true;
 		}
 
-		public static void PlaceBottom(int x, int y, byte color, CustomTree tree, bool top) 
+		public static void PlaceBottom(int x, int y, byte color, TreeSettings settings, bool top) 
 		{
-			bool rootRight = WorldGen.genRand.NextBool(tree.RootChance);
-			bool rootLeft = WorldGen.genRand.NextBool(tree.RootChance);
+			bool rootRight = !WorldGen.genRand.NextBool(settings.NoRootChance);
+			bool rootLeft = !WorldGen.genRand.NextBool(settings.NoRootChance);
 
 			int style = WorldGen.genRand.Next(3);
 
-			if (rootRight) Place(x + 1, y, new(style, TreeTileSide.Right, TreeTileType.Root), color, tree);
-			if (rootLeft) Place(x - 1, y, new(style, TreeTileSide.Left, TreeTileType.Root), color, tree);
+			if (rootRight) Place(x + 1, y, new(style, TreeTileSide.Right, TreeTileType.Root), color, settings);
+			if (rootLeft) Place(x - 1, y, new(style, TreeTileSide.Left, TreeTileType.Root), color, settings);
 
 			if (rootLeft || rootRight)
-				Place(x, y, new(style, GetSide(rootLeft, rootRight), top ? TreeTileType.TopWithRoots : TreeTileType.WithRoots), color, tree);
-			else PlaceNormal(x, y, color, tree);
+				Place(x, y, new(style, GetSide(rootLeft, rootRight), top ? TreeTileType.TopWithRoots : TreeTileType.WithRoots), color, settings);
+			else PlaceNormal(x, y, color, settings);
 		}
 
-		public static void PlaceMiddle(int x, int y, byte color, CustomTree tree)
+		public static void PlaceMiddle(int x, int y, byte color, TreeSettings settings)
 		{
-			bool branchRight = WorldGen.genRand.NextBool(tree.BranchChance);
-			bool branchLeft = WorldGen.genRand.NextBool(tree.BranchChance);
+			bool branchRight = WorldGen.genRand.NextBool(settings.BranchChance);
+			bool branchLeft = WorldGen.genRand.NextBool(settings.BranchChance);
 
 			int style = WorldGen.genRand.Next(3);
 
@@ -104,46 +104,46 @@ namespace CustomTreeLib
 			if (branchRight)
 				Place(x + 1, y, 
 					new(style, TreeTileSide.Right, 
-					WorldGen.genRand.NextBool(tree.NotLeafyBranchChance) ? TreeTileType.Branch : TreeTileType.LeafyBranch),
-					color, tree);
+					WorldGen.genRand.NextBool(settings.NotLeafyBranchChance) ? TreeTileType.Branch : TreeTileType.LeafyBranch),
+					color, settings);
 			if (branchLeft)
 				Place(x - 1, y,
 					new(style, TreeTileSide.Left,
-					WorldGen.genRand.NextBool(tree.NotLeafyBranchChance) ? TreeTileType.Branch : TreeTileType.LeafyBranch),
-					color, tree);
+					WorldGen.genRand.NextBool(settings.NotLeafyBranchChance) ? TreeTileType.Branch : TreeTileType.LeafyBranch),
+					color, settings);
 
 			if (branchRight || branchLeft)
-				Place(x, y, new(style, GetSide(branchLeft, branchRight), TreeTileType.WithBranches), color, tree);
-			else PlaceNormal(x, y, color, tree);
+				Place(x, y, new(style, GetSide(branchLeft, branchRight), TreeTileType.WithBranches), color, settings);
+			else PlaceNormal(x, y, color, settings);
 		}
 
-		public static void PlaceTop(int x, int y, byte color, CustomTree tree)
+		public static void PlaceTop(int x, int y, byte color, TreeSettings settings)
 		{
-			if (WorldGen.genRand.NextBool(tree.BrokenTopChance))
-				Place(x, y, new(TreeTileType.BrokenTop), color, tree);
-			else Place(x, y, new(TreeTileType.LeafyTop), color, tree);
+			if (WorldGen.genRand.NextBool(settings.BrokenTopChance))
+				Place(x, y, new(TreeTileType.BrokenTop), color, settings);
+			else Place(x, y, new(TreeTileType.LeafyTop), color, settings);
 		}
 
-		public static void PlaceNormal(int x, int y, byte color, CustomTree tree) 
+		public static void PlaceNormal(int x, int y, byte color, TreeSettings settings) 
 		{
 			int bark = 0;
 
-			if (WorldGen.genRand.NextBool(tree.LessBarkChance)) bark--;
-			if (WorldGen.genRand.NextBool(tree.MoreBarkChance)) bark++;
+			if (WorldGen.genRand.NextBool(settings.LessBarkChance)) bark--;
+			if (WorldGen.genRand.NextBool(settings.MoreBarkChance)) bark++;
 
 			TreeTileSide side = WorldGen.genRand.NextBool() ? TreeTileSide.Left : TreeTileSide.Right;
 
-			if (bark == 0) Place(x, y, new(TreeTileType.Normal), color, tree);
-			else if (bark < 0) Place(x, y, new(side, TreeTileType.LessBark), color, tree);
-			else Place(x, y, new(side, TreeTileType.MoreBark), color, tree);
+			if (bark == 0) Place(x, y, new(TreeTileType.Normal), color, settings);
+			else if (bark < 0) Place(x, y, new(side, TreeTileType.LessBark), color, settings);
+			else Place(x, y, new(side, TreeTileType.MoreBark), color, settings);
 		}
 
-		public static void Place(int x, int y, TreeTileInfo info, byte color, CustomTree tree) 
+		public static void Place(int x, int y, TreeTileInfo info, byte color, TreeSettings settings) 
 		{
 			Tile t = Main.tile[x, y];
 
 			t.HasTile = true;
-			t.TileType = tree.Tile.Type;
+			t.TileType = settings.TreeTileType;
 			info.ApplyToTile(t);
 			t.TileColor = color;
 		}
@@ -244,9 +244,9 @@ namespace CustomTreeLib
 			return stats;
         }
 
-		public static bool TryGrowHigher(int topX, int topY, CustomTree tree)
+		public static bool TryGrowHigher(int topX, int topY, TreeSettings settings)
 		{
-			if (!WorldGen.EmptyTileCheck(topX - 2, topX + 2, topY - 1 - tree.TopPadding, topY - 1, 20))
+			if (!WorldGen.EmptyTileCheck(topX - 2, topX + 2, topY - 1 - settings.TopPaddingNeeded, topY - 1, 20))
 			{
 				return false;
 			}
@@ -260,8 +260,8 @@ namespace CustomTreeLib
 
 			TreeTileInfo info = TreeTileInfo.GetInfo(t);
 
-			PlaceMiddle(topX, topY, t.TileColor, tree);
-			Place(topX, topY-1, info, t.TileColor, tree);
+			PlaceMiddle(topX, topY, t.TileColor, settings);
+			Place(topX, topY-1, info, t.TileColor, settings);
 
 			WorldGen.SectionTileFrame(topX - 2, topY - 2, topX + 2, topY + 1);
 			if (Main.netMode == NetmodeID.Server)

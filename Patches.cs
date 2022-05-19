@@ -1,14 +1,10 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 using Terraria;
+using Terraria.DataStructures;
+using Terraria.Enums;
 using Terraria.GameContent.Drawing;
 using Terraria.ModLoader;
 
@@ -30,6 +26,8 @@ namespace CustomTreeLib
             On.Terraria.GameContent.Drawing.TileDrawing.GetTileDrawData += TileDrawing_GetTileDrawData;
             On.Terraria.WorldGen.GrowTreeSettings.Profiles.TryGetFromItemId += Profiles_TryGetFromItemId;
             On.Terraria.WorldGen.GetTreeLeaf += WorldGen_GetTreeLeaf;
+            On.Terraria.WorldGen.GetTreeType += WorldGen_GetTreeType;
+            On.Terraria.Item.NewItem_IEntitySource_int_int_int_int_int_int_bool_int_bool_bool += Item_NewItem;
 
             IL.Terraria.WorldGen.ShakeTree += WorldGen_ShakeTree;
             IL.Terraria.GameContent.Drawing.TileDrawing.DrawTrees += TileDrawing_DrawTrees;
@@ -45,6 +43,8 @@ namespace CustomTreeLib
             On.Terraria.GameContent.Drawing.TileDrawing.CacheSpecialDraws -= TileDrawing_CacheSpecialDraws;
             On.Terraria.GameContent.Drawing.TileDrawing.GetTileDrawData -= TileDrawing_GetTileDrawData;
             On.Terraria.WorldGen.GrowTreeSettings.Profiles.TryGetFromItemId -= Profiles_TryGetFromItemId;
+            On.Terraria.WorldGen.GetTreeType -= WorldGen_GetTreeType;
+            On.Terraria.Item.NewItem_IEntitySource_int_int_int_int_int_int_bool_int_bool_bool -= Item_NewItem;
 
             IL.Terraria.WorldGen.ShakeTree -= WorldGen_ShakeTree;
             IL.Terraria.GameContent.Drawing.TileDrawing.DrawTrees -= TileDrawing_DrawTrees;
@@ -81,7 +81,7 @@ namespace CustomTreeLib
         {
             if (CustomTree.ByAcornType.TryGetValue(itemType, out CustomTree tree))
             {
-                profile = tree.GetTreeGrowSettings();
+                profile = tree.GetVanillaTreeGrowSettings();
                 return true;
             }
             return orig(itemType, out profile);
@@ -95,7 +95,24 @@ namespace CustomTreeLib
             }
             orig(x, topTile, t, ref treeHeight, out treeFrame, out passStyle);
         }
-
+        private TreeTypes WorldGen_GetTreeType(On.Terraria.WorldGen.orig_GetTreeType orig, int tileType)
+        {
+            if (CustomTree.ByTileType.TryGetValue(tileType, out CustomTree tree))
+                return tree.TreeType;
+            return orig(tileType);
+        }
+        private int Item_NewItem(On.Terraria.Item.orig_NewItem_IEntitySource_int_int_int_int_int_int_bool_int_bool_bool orig, IEntitySource source, int X, int Y, int Width, int Height, int Type, int Stack, bool noBroadcast, int pfix, bool noGrabDelay, bool reverseLookup)
+        {
+            if (source is EntitySource_ShakeTree shakeTree)
+            {
+                Tile t = Framing.GetTileSafely(shakeTree.TileCoords);
+                if (CustomTree.ByTileType.TryGetValue(t.TileType, out CustomTree tree) && !tree.FilterDefaultTreeShakeItemDrop(Type))
+                {
+                    return 400;
+                }
+            }
+            return orig(source, X, Y, Width, Height, Type, Stack, noBroadcast, pfix, noGrabDelay, reverseLookup);
+        }
 
         private void WorldGen_ShakeTree(ILContext il)
         {
@@ -187,21 +204,21 @@ namespace CustomTreeLib
                 type = -1;
 
             if (!c.TryGotoNext(
-                x=>x.MatchStloc(out getTreeFoliageDataMethod),
+                x => x.MatchStloc(out getTreeFoliageDataMethod),
 
-                x=>x.MatchLdcI4(0),
-                x=>x.MatchStloc(out success),
+                x => x.MatchLdcI4(0),
+                x => x.MatchStloc(out success),
 
-                x=>x.MatchLdloc(out type),
-                x=>x.MatchLdcI4(589)
-                )) 
+                x => x.MatchLdloc(out type),
+                x => x.MatchLdcI4(589)
+                ))
             {
                 Mod.Logger.WarnFormat("Patch error: {0} (DrawTrees:FoliagePatch)");
                 return;
             }
 
             c.Index += 3;
-            
+
             c.Emit(OpCodes.Ldloc, type);
             c.Emit(OpCodes.Ldloca, success);
             c.Emit<Patches>(OpCodes.Call, nameof(GetFoliageHook));
@@ -220,9 +237,9 @@ namespace CustomTreeLib
 
             while (c.TryGotoNext(
                 MoveType.After,
-                x=>x.MatchLdloc(out color),
-                x=>x.MatchCall<TileDrawing>("GetTreeBranchTexture"),
-                x=>x.MatchStloc(out texture)
+                x => x.MatchLdloc(out color),
+                x => x.MatchCall<TileDrawing>("GetTreeBranchTexture"),
+                x => x.MatchStloc(out texture)
                 ))
             {
                 c.Emit(OpCodes.Ldloc, type);
@@ -278,7 +295,7 @@ namespace CustomTreeLib
                     c.Emit(OpCodes.Ldloc, color);
                     c.Emit<Patches>(OpCodes.Call, nameof(AfterDrawTexture));
                 }
-                else 
+                else
                 {
                     Mod.Logger.WarnFormat("Patch error: expected SpriteBatch.Draw after GetTreeTopTexture in DrawTrees:HookTopDraws");
                 }
@@ -297,7 +314,7 @@ namespace CustomTreeLib
         }
 
         // true -> vanilla behavior
-        private static bool ShakeTreeHook(int x, int y, ref bool createLeaves) 
+        private static bool ShakeTreeHook(int x, int y, ref bool createLeaves)
         {
             Tile tile = Main.tile[x, y];
             if (CustomTree.ByTileType.TryGetValue(tile.TileType, out CustomTree tree))
@@ -307,9 +324,9 @@ namespace CustomTreeLib
             return true;
         }
 
-        private static WorldGen.GetTreeFoliageDataMethod GetFoliageHook(ushort type, ref bool success) 
+        private static WorldGen.GetTreeFoliageDataMethod GetFoliageHook(ushort type, ref bool success)
         {
-            if (CustomTree.ByTileType.TryGetValue(type, out CustomTree tree)) 
+            if (CustomTree.ByTileType.TryGetValue(type, out CustomTree tree))
             {
                 success = true;
                 return (int i, int j, int xoffset, ref int treeFrame, ref int treeStyle, out int floorY, out int topTextureFrameWidth, out int topTextureFrameHeight) =>
@@ -320,7 +337,7 @@ namespace CustomTreeLib
             }
             return null;
         }
-        private static void GetTexturesHook(ushort type, bool branch, ref Texture2D texture) 
+        private static void GetTexturesHook(ushort type, bool branch, ref Texture2D texture)
         {
             if (CustomTree.ByTileType.TryGetValue(type, out CustomTree tree))
             {
