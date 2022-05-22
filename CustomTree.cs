@@ -282,7 +282,7 @@ namespace CustomTreeLib
         /// </summary>
         public virtual void TileFrame(int x, int y)
         {
-            WorldGen.CheckTreeWithSettings(x, y, new() { IsGroundValid = ValidGroundType });
+            TreeGrowing.CheckTree(x, y, GetTreeSettings());
         }
 
         /// <summary>
@@ -517,6 +517,11 @@ namespace CustomTreeLib
             TileID.Sets.PreventsTileRemovalIfOnTopOfIt[Type] = true;
             TileID.Sets.PreventsTileReplaceIfOnTopOfIt[Type] = true;
 
+            //TileObjectData.newTile.CopyFrom(TileObjectData.Style1x1);
+            //TileObjectData.newTile.CoordinateWidth = 20;
+            //TileObjectData.newTile.CoordinateHeights = new[] { 20 };
+            //TileObjectData.addTile(Type);
+
             if (Tree.MapColor.HasValue)
             {
                 if (Tree.MapName is not null)
@@ -545,6 +550,14 @@ namespace CustomTreeLib
         }
 
         public override bool Drop(int i, int j) => Tree.Drop(i, j);
+
+        public override void SetDrawPositions(int i, int j, ref int width, ref int offsetY, ref int height, ref short tileFrameX, ref short tileFrameY)
+        {
+            width = 20;
+            height = 20;
+            tileFrameX = (short)(tileFrameX / 18 * 22);
+            tileFrameY = (short)(tileFrameY / 18 * 22);
+        }
     }
 
     [Autoload(false)]

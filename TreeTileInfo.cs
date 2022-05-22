@@ -45,15 +45,19 @@ namespace CustomTreeLib
             Type = type;
         }
 
-        public static TreeTileInfo GetInfo(int x, int y) => GetInfo(Main.tile[x, y]);
+        public static TreeTileInfo GetInfo(int x, int y) => GetInfo(Framing.GetTileSafely(x, y));
 
         public static TreeTileInfo GetInfo(Tile t)
         {
             Point frame = new(t.TileFrameX, t.TileFrameY);
 
-            int style = (frame.Y & 66) / 22 % 3;
-            frame.Y /= 66;
-            frame.X /= 22;
+            int frameSize = 22;
+            if (CustomTree.ByTileType.ContainsKey(t.TileType))
+                frameSize = 18;
+
+            int style = (frame.Y & (frameSize * 3)) / frameSize % 3;
+            frame.Y /= frameSize * 3;
+            frame.X /= frameSize;
 
             switch (frame.X)
             {
@@ -136,7 +140,7 @@ namespace CustomTreeLib
             return new(style, TreeTileSide.Center, TreeTileType.None);
         }
 
-        public void ApplyToTile(int x, int y) => ApplyToTile(Main.tile[x, y]);
+        public void ApplyToTile(int x, int y) => ApplyToTile(Framing.GetTileSafely(x, y));
 
         public void ApplyToTile(Tile t)
         {
@@ -208,13 +212,29 @@ namespace CustomTreeLib
 
             frame.Y += Style;
 
-            t.TileFrameX = (short)(frame.X * 22);
-            t.TileFrameY = (short)(frame.Y * 22);
+            int frameSize = 22;
+            if (CustomTree.ByTileType.ContainsKey(t.TileType))
+                frameSize = 18;
+
+            t.TileFrameX = (short)(frame.X * frameSize);
+            t.TileFrameY = (short)(frame.Y * frameSize);
         }
 
         public override string ToString()
         {
             return $"{Side} {Type} ({Style})";
+        }
+
+        public static bool operator ==(TreeTileInfo a, TreeTileInfo b) 
+        {
+            if (a.Type != b.Type) return false;
+            if (a.Side != b.Side) return false;
+            return a.Style == b.Style;
+        }
+
+        public static bool operator !=(TreeTileInfo a, TreeTileInfo b)
+        {
+            return a.Type != b.Type || a.Side != b.Side || a.Style != b.Style;
         }
 
     }

@@ -7,6 +7,10 @@ using Terraria.DataStructures;
 using Terraria.Enums;
 using Terraria.GameContent.Drawing;
 using Terraria.ModLoader;
+using MonoMod.RuntimeDetour.HookGen;
+using System;
+using Terraria.ModLoader.IO;
+using System.IO;
 
 namespace CustomTreeLib
 {
@@ -24,11 +28,12 @@ namespace CustomTreeLib
 
             On.Terraria.WorldGen.IsTileTypeFitForTree += WorldGen_IsTileTypeFitForTree;
             On.Terraria.GameContent.Drawing.TileDrawing.CacheSpecialDraws += TileDrawing_CacheSpecialDraws;
-            On.Terraria.GameContent.Drawing.TileDrawing.GetTileDrawData += TileDrawing_GetTileDrawData;
             On.Terraria.WorldGen.GrowTreeSettings.Profiles.TryGetFromItemId += Profiles_TryGetFromItemId;
             On.Terraria.WorldGen.GetTreeLeaf += WorldGen_GetTreeLeaf;
             On.Terraria.WorldGen.GetTreeType += WorldGen_GetTreeType;
             On.Terraria.Item.NewItem_IEntitySource_int_int_int_int_int_int_bool_int_bool_bool += Item_NewItem;
+            On.Terraria.WorldGen.GetTreeBottom += WorldGen_GetTreeBottom;
+            On.Terraria.WorldGen.IsTileALeafyTreeTop += WorldGen_IsTileALeafyTreeTop;
 
             IL.Terraria.WorldGen.ShakeTree += WorldGen_ShakeTree;
             IL.Terraria.GameContent.Drawing.TileDrawing.DrawTrees += TileDrawing_DrawTrees;
@@ -42,25 +47,16 @@ namespace CustomTreeLib
         {
             On.Terraria.WorldGen.IsTileTypeFitForTree -= WorldGen_IsTileTypeFitForTree;
             On.Terraria.GameContent.Drawing.TileDrawing.CacheSpecialDraws -= TileDrawing_CacheSpecialDraws;
-            On.Terraria.GameContent.Drawing.TileDrawing.GetTileDrawData -= TileDrawing_GetTileDrawData;
             On.Terraria.WorldGen.GrowTreeSettings.Profiles.TryGetFromItemId -= Profiles_TryGetFromItemId;
             On.Terraria.WorldGen.GetTreeType -= WorldGen_GetTreeType;
             On.Terraria.Item.NewItem_IEntitySource_int_int_int_int_int_int_bool_int_bool_bool -= Item_NewItem;
+            On.Terraria.WorldGen.GetTreeBottom -= WorldGen_GetTreeBottom;
+            On.Terraria.WorldGen.IsTileALeafyTreeTop -= WorldGen_IsTileALeafyTreeTop;
 
             IL.Terraria.WorldGen.ShakeTree -= WorldGen_ShakeTree;
             IL.Terraria.GameContent.Drawing.TileDrawing.DrawTrees -= TileDrawing_DrawTrees;
         }
 
-        private void TileDrawing_GetTileDrawData(On.Terraria.GameContent.Drawing.TileDrawing.orig_GetTileDrawData orig, TileDrawing self, int x, int y, Terraria.Tile tileCache, ushort typeCache, ref short tileFrameX, ref short tileFrameY, out int tileWidth, out int tileHeight, out int tileTop, out int halfBrickHeight, out int addFrX, out int addFrY, out Microsoft.Xna.Framework.Graphics.SpriteEffects tileSpriteEffect, out Microsoft.Xna.Framework.Graphics.Texture2D glowTexture, out Microsoft.Xna.Framework.Rectangle glowSourceRect, out Microsoft.Xna.Framework.Color glowColor)
-        {
-            orig(self, x, y, tileCache, typeCache, ref tileFrameX, ref tileFrameY, out tileWidth, out tileHeight, out tileTop, out halfBrickHeight, out addFrX, out addFrY, out tileSpriteEffect, out glowTexture, out glowSourceRect, out glowColor);
-
-            if (CustomTree.ByTileType.ContainsKey(typeCache))
-            {
-                tileWidth = 20;
-                tileHeight = 20;
-            }
-        }
         private void TileDrawing_CacheSpecialDraws(On.Terraria.GameContent.Drawing.TileDrawing.orig_CacheSpecialDraws orig, Terraria.GameContent.Drawing.TileDrawing self, int tileX, int tileY, Terraria.DataStructures.TileDrawInfo drawData)
         {
             orig(self, tileX, tileY, drawData);
@@ -113,6 +109,27 @@ namespace CustomTreeLib
                 }
             }
             return orig(source, X, Y, Width, Height, Type, Stack, noBroadcast, pfix, noGrabDelay, reverseLookup);
+        }
+        private void WorldGen_GetTreeBottom(On.Terraria.WorldGen.orig_GetTreeBottom orig, int i, int j, out int x, out int y)
+        {
+            if (CustomTree.ByTileType.ContainsKey(Framing.GetTileSafely(i, j).TileType))
+            {
+                x = i;
+                y = j;
+                TreeGrowing.GetTreeBottom(ref x, ref y);
+                y--;
+                return;
+            }
+
+            orig(i, j, out x, out y);
+        }
+
+        private bool WorldGen_IsTileALeafyTreeTop(On.Terraria.WorldGen.orig_IsTileALeafyTreeTop orig, int i, int j)
+        {
+            if (CustomTree.ByTileType.ContainsKey(Framing.GetTileSafely(i, j).TileType))
+                return TreeTileInfo.GetInfo(i, j).Type == TreeTileType.LeafyTop;
+
+            return orig(i, j);
         }
 
         private void WorldGen_ShakeTree(ILContext il)
@@ -189,6 +206,8 @@ namespace CustomTreeLib
         }
         private void TileDrawing_DrawTrees(ILContext il)
         {
+            PatchTreeFrame(il);
+
             ILCursor c = new(il);
             /*
               IL_00A5: stloc.s   getTreeFoliageDataMethod
@@ -314,7 +333,56 @@ namespace CustomTreeLib
             }
         }
 
-        // true -> vanilla behavior
+        private void PatchTreeFrame(ILContext il) 
+        {
+            ILCursor c = new(il);
+            /*
+		      IL_0083: ldloca.s  tile
+		      IL_0085: call      instance int16& Terraria.Tile::get_frameX()
+		      IL_008A: ldind.i2
+		      IL_008B: stloc.s   frameX
+		      
+		      IL_008D: ldloca.s  tile
+		      IL_008F: call      instance int16& Terraria.Tile::get_frameY()
+		      IL_0094: ldind.i2
+		      IL_0095: stloc.s   frameY
+             */
+
+            int tile = -1,
+                frameX = -1,
+                frameY = -1;
+
+            if (!c.TryGotoNext(
+                MoveType.After,
+
+                x=>x.MatchLdloca(out tile),
+                x=>x.MatchCall<Tile>("get_frameX"),
+                x=>x.MatchLdindI2(),
+                x=>x.MatchStloc(out frameX),
+
+                x => x.MatchLdloca(tile),
+                x => x.MatchCall<Tile>("get_frameY"),
+                x => x.MatchLdindI2(),
+                x => x.MatchStloc(out frameY)
+                ))
+            {
+                Mod.Logger.Warn("Patch error: DrawTrees:PatchTreeFrame");
+                return;
+            }
+
+            c.Emit(OpCodes.Ldloc, tile);
+            c.Emit(OpCodes.Ldloca, frameX);
+            c.Emit(OpCodes.Ldloca, frameY);
+            c.Emit<Patches>(OpCodes.Call, nameof(TreeFrameHook));
+        }
+
+        private static void TreeFrameHook(Tile tile, ref short frameX, ref short frameY)
+        {
+            if (!CustomTree.ByTileType.ContainsKey(tile.TileType)) return;
+
+            frameX = (short)(frameX / 18 * 22);
+            frameY = (short)(frameY / 18 * 22);
+        }
         private static bool ShakeTreeHook(int x, int y, ref bool createLeaves)
         {
             Tile tile = Main.tile[x, y];
@@ -324,7 +392,6 @@ namespace CustomTreeLib
             }
             return true;
         }
-
         private static WorldGen.GetTreeFoliageDataMethod GetFoliageHook(ushort type, ref bool success)
         {
             if (CustomTree.ByTileType.TryGetValue(type, out CustomTree tree))
@@ -345,7 +412,6 @@ namespace CustomTreeLib
                 texture = tree.GetFoliageTexture(branch);
             }
         }
-
         private static void BeforeDrawTexture(ushort type, bool branch, byte tileColor)
         {
             if (!CustomTree.ByTileType.TryGetValue(type, out CustomTree tree) || tree?.PaintingSettings is null) return;

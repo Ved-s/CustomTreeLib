@@ -148,7 +148,7 @@ namespace CustomTreeLib
 			else Place(x, y, new(side, TreeTileType.MoreBark), color, settings);
 		}
 
-		public static void Place(int x, int y, TreeTileInfo info, byte color, TreeSettings settings) 
+		public static void Place(int x, int y, TreeTileInfo info, byte color, TreeSettings settings, bool triggerTileframe = false) 
 		{
 			Tile t = Main.tile[x, y];
 
@@ -156,6 +156,14 @@ namespace CustomTreeLib
 			t.TileType = settings.TreeTileType;
 			info.ApplyToTile(t);
 			t.TileColor = color;
+
+			if (triggerTileframe)
+			{
+				WorldGen.TileFrame(x - 1, y, false, false);
+				WorldGen.TileFrame(x + 1, y, false, false);
+				WorldGen.TileFrame(x, y - 1, false, false);
+				WorldGen.TileFrame(x, y + 1, false, false);
+			}
 		}
 
 		public static TreeTileSide GetSide(bool left, bool right)
@@ -320,6 +328,139 @@ namespace CustomTreeLib
 			}
 
 			return true;
+		}
+
+		public static void CheckTree(int x, int y, TreeSettings settings, bool breakTiles = true, bool fixFrames = true)
+		{
+			Tile t = Framing.GetTileSafely(x, y);
+			if (t.TileType != settings.TreeTileType) return;
+
+			TreeTileInfo info = TreeTileInfo.GetInfo(x, y);
+
+			if (breakTiles)
+			{
+				bool groundCheck = info.Type != TreeTileType.Branch && info.Type != TreeTileType.LeafyBranch;
+				if (groundCheck)
+				{
+					Tile ground = Framing.GetTileSafely(x, y + 1);
+					if (ground.TileType != settings.TreeTileType && !settings.GroundTypeCheck(ground.TileType))
+					{
+						WorldGen.KillTile(x, y);
+						return;
+					}
+				}
+
+				if (info.Type == TreeTileType.Branch || info.Type == TreeTileType.LeafyBranch || info.Type == TreeTileType.Root)
+				{
+					int checkX = x;
+					if (info.Side == TreeTileSide.Left) checkX++;
+					else if (info.Side == TreeTileSide.Right) checkX--;
+
+					if (Framing.GetTileSafely(checkX, y).TileType != settings.TreeTileType)
+					{
+						WorldGen.KillTile(x, y);
+						return;
+					}
+				}
+			}
+
+			if (fixFrames) 
+			{
+				bool top = Framing.GetTileSafely(x, y - 1).TileType == settings.TreeTileType;
+				bool left = Framing.GetTileSafely(x - 1, y).TileType == settings.TreeTileType;
+				bool right = Framing.GetTileSafely(x + 1, y).TileType == settings.TreeTileType;
+
+				TreeTileInfo leftInfo = TreeTileInfo.GetInfo(x - 1, y);
+				TreeTileInfo rightInfo = TreeTileInfo.GetInfo(x + 1, y);
+
+				bool leftBranch = left && leftInfo.Type == TreeTileType.Branch || leftInfo.Type == TreeTileType.LeafyBranch;
+				bool rightBranch = right && rightInfo.Type == TreeTileType.Branch || rightInfo.Type == TreeTileType.LeafyBranch;
+
+				bool leftRoot = left && leftInfo.Type == TreeTileType.Root;
+				bool rightRoot = right && rightInfo.Type == TreeTileType.Root;
+
+				//switch (newInfo.Type)
+				//{
+				//	case TreeTileType.WithRoots when top:
+				//		newInfo.Type = TreeTileType.TopWithRoots;
+				//		break;
+				//
+				//	case TreeTileType.WithBranches when top:
+				//		newInfo.Type = TreeTileType.TopWithBranches;
+				//		break;
+				//
+				//	case TreeTileType.TopWithRoots when !top:
+				//		newInfo.Type = TreeTileType.WithRoots;
+				//		break;
+				//
+				//	case TreeTileType.TopWithBranches when !top:
+				//		newInfo.Type = TreeTileType.WithBranches;
+				//		break;
+				//}
+
+				TreeTileInfo newInfo = info;
+
+				if (newInfo.IsTop || newInfo.Type == TreeTileType.Branch || newInfo.Type == TreeTileType.LeafyBranch || newInfo.Type == TreeTileType.Root)
+				{
+				}
+				else if (leftBranch || rightBranch)
+				{
+					newInfo.Type = top ? TreeTileType.WithBranches : TreeTileType.TopWithBranches;
+					newInfo.Side = GetSide(leftBranch, rightBranch);
+				}
+				else if (leftRoot || rightRoot)
+				{
+					newInfo.Type = top ? TreeTileType.WithRoots : TreeTileType.TopWithRoots;
+					newInfo.Side = GetSide(leftRoot, rightRoot);
+				}
+				else if (!top)
+				{
+					newInfo.Type = TreeTileType.Top;
+				}
+				else if (
+					   newInfo.Type != TreeTileType.Normal
+					&& newInfo.Type != TreeTileType.LessBark
+					&& newInfo.Type != TreeTileType.MoreBark)
+				{
+					int bark = 0;
+
+					if (WorldGen.genRand.NextBool(settings.LessBarkChance)) bark--;
+					if (WorldGen.genRand.NextBool(settings.MoreBarkChance)) bark++;
+
+					newInfo.Side = bark == 0 ? TreeTileSide.Center : WorldGen.genRand.NextBool() ? TreeTileSide.Left : TreeTileSide.Right;
+
+					if (bark == 0) newInfo.Type = TreeTileType.Normal;
+					else if (bark < 0) newInfo.Type = TreeTileType.LessBark;
+					else newInfo.Type = TreeTileType.MoreBark;
+				}
+				if (info != newInfo)
+				{
+					newInfo.ApplyToTile(x, y);
+
+					WorldGen.TileFrame(x - 1, y, false, false);
+					WorldGen.TileFrame(x + 1, y, false, false);
+					WorldGen.TileFrame(x, y - 1, false, false);
+					WorldGen.TileFrame(x, y + 1, false, false);
+				}
+			}
+		}
+
+		public static void GetTreeBottom(ref int x, ref int y)
+		{
+			TreeTileInfo info = TreeTileInfo.GetInfo(x, y);
+
+			if (info.Type == TreeTileType.Root || info.Type == TreeTileType.Branch || info.Type == TreeTileType.LeafyBranch)
+			{
+				if (info.Side == TreeTileSide.Left) x++;
+				else if (info.Side == TreeTileSide.Right) x--;
+			}
+
+			Tile t = Framing.GetTileSafely(x, y);
+			while (y < Main.maxTilesY - 50 && (!t.HasTile || TileID.Sets.IsATreeTrunk[t.TileType] || t.TileType == 72))
+			{
+				y++;
+				t = Framing.GetTileSafely(x, y);
+			}
 		}
     }
 
