@@ -20,6 +20,8 @@ namespace CustomTreeLib
 
         public static Dictionary<int, CustomTree> ByTileType = new();
         public static Dictionary<int, CustomTree> ByAcornType = new();
+        public static Dictionary<int, CustomTree> BySaplingType = new();
+        public static Dictionary<int, CustomTree> ByCustomLeafType = new();
 
         /// <summary>
         /// Internal tree name
@@ -157,25 +159,25 @@ namespace CustomTreeLib
 
         public virtual void Load(Mod mod)
         {
-            Sapling.Tree = this;
-            Acorn.Tree = this;
-            Tile.Tree = this;
+            LoadedTrees.Add(this);
 
             if (LeafTexture is not null)
-            {
                 Leaf = new();
-                Leaf.Tree = this;
-            }
-
+            
             mod.AddContent(Sapling);
-            mod.AddContent(Acorn);
-            mod.AddContent(Tile);
-            if (Leaf is not null)
-                mod.AddContent(Leaf);
+            BySaplingType[Sapling.Type] = this;
 
-            LoadedTrees.Add(this);
-            ByTileType[Tile.Type] = this;
+            mod.AddContent(Acorn);
             ByAcornType[Acorn.Type] = this;
+
+            mod.AddContent(Tile);
+            ByTileType[Tile.Type] = this;
+
+            if (Leaf is not null)
+            {
+                mod.AddContent(Leaf);
+                ByCustomLeafType[Leaf.Type] = this;
+            }
         }
 
         public virtual void Unload()
@@ -183,6 +185,10 @@ namespace CustomTreeLib
             LoadedTrees.Remove(this);
             ByTileType.Remove(Tile.Type);
             ByAcornType.Remove(Acorn.Type);
+            BySaplingType.Remove(Sapling.Type);
+
+            if (Leaf is not null)
+                ByCustomLeafType.Remove(Leaf.Type);
         }
 
         /// <summary>
@@ -366,222 +372,200 @@ namespace CustomTreeLib
     }
 
     public abstract class CustomTree<TAcornItem> : CustomTree where TAcornItem : CustomTreeAcorn, new()
-{
-    public override TAcornItem Acorn { get; }
-    public sealed override string AcornTexture => null;
-
-    public CustomTree()
     {
-        Acorn = new();
-        Acorn.Tree = this;
+        public override TAcornItem Acorn { get; } = new();
+        public sealed override string AcornTexture => null;
     }
-}
-public abstract class CustomTree<TAcornItem, TSaplingTile> : CustomTree
-    where TAcornItem : CustomTreeAcorn, new()
-    where TSaplingTile : CustomTreeSapling, new()
-{
-    public override TAcornItem Acorn { get; }
-    public override TSaplingTile Sapling { get; }
-
-    public override string AcornTexture => null;
-    public override string SaplingTexture => null;
-
-    public CustomTree()
+    public abstract class CustomTree<TAcornItem, TSaplingTile> : CustomTree
+        where TAcornItem : CustomTreeAcorn, new()
+        where TSaplingTile : CustomTreeSapling, new()
     {
-        Acorn = new();
-        Acorn.Tree = this;
+        public override TAcornItem Acorn { get; } = new();
+        public override TSaplingTile Sapling { get; } = new();
 
-        Sapling = new();
-        Sapling.Tree = this;
+        public override string AcornTexture => null;
+        public override string SaplingTexture => null;
     }
-}
-public abstract class CustomTree<TAcornItem, TSaplingTile, TTreeTile> : CustomTree
-    where TAcornItem : CustomTreeAcorn, new()
-    where TSaplingTile : CustomTreeSapling, new()
-    where TTreeTile : CustomTreeTile, new()
-{
-    public override TAcornItem Acorn { get; }
-    public override TSaplingTile Sapling { get; }
-    public override TTreeTile Tile { get; }
-
-    public override string AcornTexture => null;
-    public override string SaplingTexture => null;
-    public override string TileTexture => null;
-
-    public CustomTree()
+    public abstract class CustomTree<TAcornItem, TSaplingTile, TTreeTile> : CustomTree
+        where TAcornItem : CustomTreeAcorn, new()
+        where TSaplingTile : CustomTreeSapling, new()
+        where TTreeTile : CustomTreeTile, new()
     {
-        Acorn = new();
-        Acorn.Tree = this;
+        public override TAcornItem Acorn { get; } = new();
+        public override TSaplingTile Sapling { get; } = new();
+        public override TTreeTile Tile { get; } = new();
 
-        Sapling = new();
-        Sapling.Tree = this;
-
-        Tile = new();
-        Tile.Tree = this;
+        public override string AcornTexture => null;
+        public override string SaplingTexture => null;
+        public override string TileTexture => null;
     }
-}
 
-[Autoload(false)]
-public class CustomTreeSapling : ModTile
-{
-    public bool IsDefault => GetType() == typeof(CustomTreeSapling);
-
-    public override string Name => IsDefault ? Tree.Name + "Sapling" : base.Name;
-    public override string Texture => IsDefault ? Tree.SaplingTexture : base.Texture;
-
-    public CustomTree Tree { get; internal set; }
-
-    public override void SetStaticDefaults()
+    [Autoload(false)]
+    public class CustomTreeSapling : ModTile
     {
-        TileID.Sets.CommonSapling[Type] = true;
-        TileID.Sets.SwaysInWindBasic[Type] = true;
+        public bool IsDefault => GetType() == typeof(CustomTreeSapling);
 
-        Main.tileFrameImportant[Type] = true;
-        Main.tileNoAttach[Type] = true;
+        public override string Name => IsDefault ? Tree.Name + "Sapling" : base.Name;
+        public override string Texture => IsDefault ? Tree.SaplingTexture : base.Texture;
 
-        TileObjectData.newTile.Width = 1;
-        TileObjectData.newTile.Height = 2;
-        TileObjectData.newTile.Origin = new Point16(0, 1);
-        TileObjectData.newTile.AnchorBottom = new AnchorData(AnchorType.SolidTile, TileObjectData.newTile.Width, 0);
-        TileObjectData.newTile.UsesCustomCanPlace = true;
-        TileObjectData.newTile.CoordinateHeights = new int[] { 16, 18 };
-        TileObjectData.newTile.CoordinateWidth = 16;
-        TileObjectData.newTile.CoordinatePadding = 2;
-        TileObjectData.newTile.AnchorValidTiles = Tree.ValidGroundTiles;
-        TileObjectData.newTile.StyleHorizontal = true;
-        TileObjectData.newTile.DrawFlipHorizontal = true;
-        TileObjectData.newTile.WaterPlacement = LiquidPlacement.NotAllowed;
-        TileObjectData.newTile.LavaDeath = false;
-        TileObjectData.newTile.RandomStyleRange = Tree.SaplingStyles;
-        TileObjectData.newTile.StyleMultiplier = 1;
-        TileObjectData.newTile.StyleHorizontal = true;
-        TileObjectData.addTile(Type);
+        public CustomTree Tree => CustomTree.BySaplingType.TryGetValue(Type, out var tree) ? tree 
+            : CustomTree.LoadedTrees.FirstOrDefault(t => t.Sapling.Type == Type);
 
-        if (Tree.SaplingMapColor.HasValue)
+        public override void SetStaticDefaults()
         {
-            if (Tree.SaplingMapName is not null)
+            TileID.Sets.CommonSapling[Type] = true;
+            TileID.Sets.SwaysInWindBasic[Type] = true;
+
+            Main.tileFrameImportant[Type] = true;
+            Main.tileNoAttach[Type] = true;
+
+            TileObjectData.newTile.Width = 1;
+            TileObjectData.newTile.Height = 2;
+            TileObjectData.newTile.Origin = new Point16(0, 1);
+            TileObjectData.newTile.AnchorBottom = new AnchorData(AnchorType.SolidTile, TileObjectData.newTile.Width, 0);
+            TileObjectData.newTile.UsesCustomCanPlace = true;
+            TileObjectData.newTile.CoordinateHeights = new int[] { 16, 18 };
+            TileObjectData.newTile.CoordinateWidth = 16;
+            TileObjectData.newTile.CoordinatePadding = 2;
+            TileObjectData.newTile.AnchorValidTiles = Tree.ValidGroundTiles;
+            TileObjectData.newTile.StyleHorizontal = true;
+            TileObjectData.newTile.DrawFlipHorizontal = true;
+            TileObjectData.newTile.WaterPlacement = LiquidPlacement.NotAllowed;
+            TileObjectData.newTile.LavaDeath = false;
+            TileObjectData.newTile.RandomStyleRange = Tree.SaplingStyles;
+            TileObjectData.newTile.StyleMultiplier = 1;
+            TileObjectData.newTile.StyleHorizontal = true;
+            TileObjectData.addTile(Type);
+
+            if (Tree.SaplingMapColor.HasValue)
             {
-                if (Tree.SaplingMapName.Any(c => char.IsWhiteSpace(c)))
+                if (Tree.SaplingMapName is not null)
                 {
-                    ModTranslation entry = CreateMapEntryName();
-                    entry.SetDefault(Tree.SaplingMapName);
-                    AddMapEntry(Tree.SaplingMapColor.Value, entry);
+                    if (Tree.SaplingMapName.Any(c => char.IsWhiteSpace(c)))
+                    {
+                        ModTranslation entry = CreateMapEntryName();
+                        entry.SetDefault(Tree.SaplingMapName);
+                        AddMapEntry(Tree.SaplingMapColor.Value, entry);
+                    }
+                    else AddMapEntry(Tree.SaplingMapColor.Value, LocalizationLoader.CreateTranslation(Tree.SaplingMapName));
                 }
-                else AddMapEntry(Tree.SaplingMapColor.Value, LocalizationLoader.CreateTranslation(Tree.SaplingMapName));
+                else AddMapEntry(Tree.SaplingMapColor.Value);
             }
-            else AddMapEntry(Tree.SaplingMapColor.Value);
+        }
+
+        public override bool TileFrame(int i, int j, ref bool resetFrame, ref bool noBreak)
+        {
+            WorldGen.Check1x2(i, j, Type);
+            return false;
+        }
+
+        public override void RandomUpdate(int i, int j)
+        {
+            if (Main.rand.NextBool(Tree.GrowChance))
+                Tree.Grow(i, j);
         }
     }
 
-    public override bool TileFrame(int i, int j, ref bool resetFrame, ref bool noBreak)
+    [Autoload(false)]
+    public class CustomTreeAcorn : ModItem
     {
-        WorldGen.Check1x2(i, j, Type);
-        return false;
-    }
+        public bool IsDefault => GetType() == typeof(CustomTreeAcorn);
 
-    public override void RandomUpdate(int i, int j)
-    {
-        if (Main.rand.NextBool(Tree.GrowChance))
-            Tree.Grow(i, j);
-    }
-}
+        public override string Name => IsDefault && Tree is not null ? Tree.Name + "Acorn" : base.Name;
+        public override string Texture => IsDefault ? Tree.AcornTexture : base.Texture;
 
-[Autoload(false)]
-public class CustomTreeAcorn : ModItem
-{
-    public bool IsDefault => GetType() == typeof(CustomTreeAcorn);
+        public CustomTree Tree => CustomTree.ByAcornType.TryGetValue(Type, out var tree) ? tree
+            : CustomTree.LoadedTrees.FirstOrDefault(t => t.Acorn.Type == Type);
 
-    public override string Name => IsDefault ? Tree.Name + "Acorn" : base.Name;
-    public override string Texture => IsDefault ? Tree.AcornTexture : base.Texture;
+        public ushort PlaceTileType => Tree.Sapling.Type;
+        public virtual int PlaceTileStyle => 0;
 
-    public CustomTree Tree { get; internal set; }
-
-    public ushort PlaceTileType => Tree.Sapling.Type;
-    public virtual int PlaceTileStyle => 0;
-
-    public override void SetStaticDefaults()
-    {
-        if (Tree.DefaultAcornName is not null)
-            DisplayName.SetDefault(Tree.DefaultAcornName);
-    }
-
-    public override void SetDefaults()
-    {
-        Item.DefaultToPlaceableTile(PlaceTileType, PlaceTileStyle);
-    }
-}
-
-[Autoload(false)]
-public class CustomTreeTile : ModTile
-{
-    public bool IsDefault => GetType() == typeof(CustomTreeTile);
-
-    public override string Name => IsDefault ? Tree.Name + "Tile" : base.Name;
-    public override string Texture => IsDefault ? Tree.TileTexture : base.Texture;
-
-    public CustomTree Tree { get; internal set; }
-
-    public override void SetStaticDefaults()
-    {
-        Main.npcCatchable[Type] = true;
-        Main.tileAxe[Type] = true;
-        Main.tileFrameImportant[Type] = true;
-
-        TileID.Sets.IsATreeTrunk[Type] = true;
-        TileID.Sets.IsShakeable[Type] = true;
-        TileID.Sets.GetsDestroyedForMeteors[Type] = true;
-        TileID.Sets.GetsCheckedForLeaves[Type] = true;
-        TileID.Sets.PreventsTileRemovalIfOnTopOfIt[Type] = true;
-        TileID.Sets.PreventsTileReplaceIfOnTopOfIt[Type] = true;
-
-        if (Tree.MapColor.HasValue)
+        public override void SetStaticDefaults()
         {
-            if (Tree.MapName is not null)
-            {
-                if (Tree.MapName.Any(c => char.IsWhiteSpace(c)))
-                {
-                    ModTranslation entry = CreateMapEntryName();
-                    entry.SetDefault(Tree.MapName);
-                    AddMapEntry(Tree.MapColor.Value, entry);
-                }
-                else AddMapEntry(Tree.MapColor.Value, LocalizationLoader.CreateTranslation(Tree.MapName));
-            }
-            else AddMapEntry(Tree.MapColor.Value);
+            if (Tree.DefaultAcornName is not null)
+                DisplayName.SetDefault(Tree.DefaultAcornName);
+        }
+
+        public override void SetDefaults()
+        {
+            if (Tree is null) return;
+            Item.DefaultToPlaceableTile(PlaceTileType, PlaceTileStyle);
         }
     }
 
-    public override void RandomUpdate(int i, int j)
+    [Autoload(false)]
+    public class CustomTreeTile : ModTile
     {
-        Tree.RandomUpdate(i, j);
+        public bool IsDefault => GetType() == typeof(CustomTreeTile);
+
+        public override string Name => IsDefault ? Tree.Name + "Tile" : base.Name;
+        public override string Texture => IsDefault ? Tree.TileTexture : base.Texture;
+
+        public CustomTree Tree => CustomTree.ByTileType.TryGetValue(Type, out var tree) ? tree
+            : CustomTree.LoadedTrees.FirstOrDefault(t => t.Tile.Type == Type);
+
+        public override void SetStaticDefaults()
+        {
+            Main.npcCatchable[Type] = true;
+            Main.tileAxe[Type] = true;
+            Main.tileFrameImportant[Type] = true;
+
+            TileID.Sets.IsATreeTrunk[Type] = true;
+            TileID.Sets.IsShakeable[Type] = true;
+            TileID.Sets.GetsDestroyedForMeteors[Type] = true;
+            TileID.Sets.GetsCheckedForLeaves[Type] = true;
+            TileID.Sets.PreventsTileRemovalIfOnTopOfIt[Type] = true;
+            TileID.Sets.PreventsTileReplaceIfOnTopOfIt[Type] = true;
+
+            if (Tree.MapColor.HasValue)
+            {
+                if (Tree.MapName is not null)
+                {
+                    if (Tree.MapName.Any(c => char.IsWhiteSpace(c)))
+                    {
+                        ModTranslation entry = CreateMapEntryName();
+                        entry.SetDefault(Tree.MapName);
+                        AddMapEntry(Tree.MapColor.Value, entry);
+                    }
+                    else AddMapEntry(Tree.MapColor.Value, LocalizationLoader.CreateTranslation(Tree.MapName));
+                }
+                else AddMapEntry(Tree.MapColor.Value);
+            }
+        }
+
+        public override void RandomUpdate(int i, int j)
+        {
+            Tree.RandomUpdate(i, j);
+        }
+
+        public override bool TileFrame(int i, int j, ref bool resetFrame, ref bool noBreak)
+        {
+            Tree.TileFrame(i, j);
+            return false;
+        }
+
+        public override bool Drop(int i, int j) => Tree.Drop(i, j);
     }
 
-    public override bool TileFrame(int i, int j, ref bool resetFrame, ref bool noBreak)
+    [Autoload(false)]
+    public class CustomTreeLeaf : ModGore
     {
-        Tree.TileFrame(i, j);
-        return false;
+        public bool IsDefault => GetType() == typeof(CustomTreeLeaf);
+
+        public override string Name => IsDefault ? Tree.Name + "Tile" : base.Name;
+        public override string Texture => IsDefault ? Tree.LeafTexture : base.Texture;
+
+        public CustomTree Tree => CustomTree.ByCustomLeafType.TryGetValue(Type, out var tree) ? tree
+            : CustomTree.LoadedTrees.FirstOrDefault(t => t.Leaf?.Type == Type);
+
+        public override void SetStaticDefaults()
+        {
+            GoreID.Sets.SpecialAI[Type] = 3;
+        }
+
+        public override void OnSpawn(Gore gore, IEntitySource source)
+        {
+            base.OnSpawn(gore, source);
+        }
     }
-
-    public override bool Drop(int i, int j) => Tree.Drop(i, j);
-}
-
-[Autoload(false)]
-public class CustomTreeLeaf : ModGore
-{
-    public bool IsDefault => GetType() == typeof(CustomTreeLeaf);
-
-    public override string Name => IsDefault ? Tree.Name + "Tile" : base.Name;
-    public override string Texture => IsDefault ? Tree.LeafTexture : base.Texture;
-
-    public CustomTree Tree { get; internal set; }
-
-    public override void SetStaticDefaults()
-    {
-        GoreID.Sets.SpecialAI[Type] = 3;
-    }
-
-    public override void OnSpawn(Gore gore, IEntitySource source)
-    {
-        base.OnSpawn(gore, source);
-    }
-}
 }
