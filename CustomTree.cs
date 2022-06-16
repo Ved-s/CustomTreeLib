@@ -506,7 +506,6 @@ namespace CustomTreeLib
 
         public override void SetStaticDefaults()
         {
-            Main.npcCatchable[Type] = true;
             Main.tileAxe[Type] = true;
             Main.tileFrameImportant[Type] = true;
 
