@@ -14,7 +14,7 @@ using System.IO;
 
 namespace CustomTreeLib
 {
-    public class Patches : ILoadable
+    internal class Patches : ILoadable
     {
         public Mod Mod { get; private set; }
         public static Patches Instance => ModContent.GetInstance<Patches>();
@@ -385,12 +385,7 @@ namespace CustomTreeLib
         }
         private static bool ShakeTreeHook(int x, int y, ref bool createLeaves)
         {
-            Tile tile = Main.tile[x, y];
-            if (CustomTree.ByTileType.TryGetValue(tile.TileType, out CustomTree tree))
-            {
-                return tree.Shake(x, y, ref createLeaves);
-            }
-            return true;
+            return TreeLoader.Shake(x, y, ref createLeaves);
         }
         private static WorldGen.GetTreeFoliageDataMethod GetFoliageHook(ushort type, ref bool success)
         {

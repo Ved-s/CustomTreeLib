@@ -9,11 +9,17 @@ using Terraria.ID;
 
 namespace CustomTreeLib
 {
+	/// <summary>
+	/// Tree generation methods
+	/// </summary>
     public static class TreeGrowing
     {
 		static bool prevLeftBranch = false;
 		static bool prevRightBranch = false;
 
+		/// <summary>
+		/// Tries to grow a tree at the given coordinates with the given settings, returns true on success
+		/// </summary>
         public static bool GrowTree(int x, int y, TreeSettings settings)
         {
 			prevLeftBranch = false;
@@ -73,6 +79,14 @@ namespace CustomTreeLib
 			return true;
 		}
 
+		/// <summary>
+		/// Generates tree botoom part at the given coordinates
+		/// </summary>
+		/// <param name="x">X coordinate</param>
+		/// <param name="y">Y coordinate</param>
+		/// <param name="color">Tile color</param>
+		/// <param name="settings">Tree settings</param>
+		/// <param name="top">True only if thee height is 1, places <see cref="TreeTileType.TopWithRoots"/> instead of <see cref="TreeTileType.WithRoots"/></param>
 		public static void PlaceBottom(int x, int y, byte color, TreeSettings settings, bool top) 
 		{
 			Tile groundRight = Framing.GetTileSafely(x + 1, y + 1);
@@ -98,6 +112,9 @@ namespace CustomTreeLib
 			else PlaceNormal(x, y, color, settings);
 		}
 
+		/// <summary>
+		/// Places middle tree part
+		/// </summary>
 		public static void PlaceMiddle(int x, int y, byte color, TreeSettings settings)
 		{
 			bool branchRight = WorldGen.genRand.NextBool(settings.BranchChance);
@@ -127,6 +144,9 @@ namespace CustomTreeLib
 			else PlaceNormal(x, y, color, settings);
 		}
 
+		/// <summary>
+		/// Places tree top
+		/// </summary>
 		public static void PlaceTop(int x, int y, byte color, TreeSettings settings)
 		{
 			if (WorldGen.genRand.NextBool(settings.BrokenTopChance))
@@ -134,6 +154,9 @@ namespace CustomTreeLib
 			else Place(x, y, new(TreeTileType.LeafyTop), color, settings);
 		}
 
+		/// <summary>
+		/// Places straight tree tile
+		/// </summary>
 		public static void PlaceNormal(int x, int y, byte color, TreeSettings settings) 
 		{
 			int bark = 0;
@@ -148,6 +171,15 @@ namespace CustomTreeLib
 			else Place(x, y, new(side, TreeTileType.MoreBark), color, settings);
 		}
 
+		/// <summary>
+		/// Places tree tile
+		/// </summary>
+		/// <param name="x"></param>
+		/// <param name="y"></param>
+		/// <param name="info"></param>
+		/// <param name="color">Tile color</param>
+		/// <param name="settings"></param>
+		/// <param name="triggerTileframe">True for triggering TileFrame afterwards</param>
 		public static void Place(int x, int y, TreeTileInfo info, byte color, TreeSettings settings, bool triggerTileframe = false) 
 		{
 			Tile t = Main.tile[x, y];
@@ -166,6 +198,9 @@ namespace CustomTreeLib
 			}
 		}
 
+		/// <summary>
+		/// Construct <see cref="TreeTileSide"/> from left and right
+		/// </summary>
 		public static TreeTileSide GetSide(bool left, bool right)
 		{
 			if (left && right || !left && !right) return TreeTileSide.Center;
@@ -173,6 +208,9 @@ namespace CustomTreeLib
 			return TreeTileSide.Right;
 		}
 
+		/// <summary>
+		/// Deconstruct <see cref="TreeTileSide"/>
+		/// </summary>
 		public static void SetSide(TreeTileSide side, out bool left, out bool right)
 		{
 			left = right = false;
@@ -182,9 +220,15 @@ namespace CustomTreeLib
 			else right = true;
 		}
 
+		/// <summary>
+		/// Gets tree statistics at the given coordinates
+		/// </summary>
 		public static TreeStats GetTreeStats(int x, int y) 
 		{
 			TreeStats stats = new();
+
+			stats.Top = new(x, y);
+			stats.Bottom = new(x, y);
 
 			foreach (PositionedTreeTile tile in EnumerateTreeTiles(x, y)) 
 			{
@@ -228,6 +272,9 @@ namespace CustomTreeLib
 			return stats;
         }
 
+		/// <summary>
+		/// Find and enumerate throug all tiles of this tree
+		/// </summary>
 		public static IEnumerable<PositionedTreeTile> EnumerateTreeTiles(int x, int y) 
 		{
 			HashSet<Point> done = new();
@@ -297,6 +344,9 @@ namespace CustomTreeLib
 			}
 		}
 
+		/// <summary>
+		/// Tries to grow tree higher at the given position
+		/// </summary>
 		public static bool TryGrowHigher(int topX, int topY, TreeSettings settings)
 		{
 			if (!WorldGen.EmptyTileCheck(topX - 2, topX + 2, topY - 1 - settings.TopPaddingNeeded, topY - 1, 20))
@@ -330,7 +380,15 @@ namespace CustomTreeLib
 			return true;
 		}
 
-		public static void CheckTree(int x, int y, TreeSettings settings, bool breakTiles = true, bool fixFrames = true)
+        /// <summary>
+        /// CustomTree variant of <see cref="WorldGen.CheckTree"/>
+        /// </summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <param name="settings">Tree settings</param>
+        /// <param name="breakTiles">True to validate and break tree tiles, for example if nothing is below vertical tile</param>
+        /// <param name="fixFrames">True to fix tile frames, for example change <see cref="TreeTileType.WithBranches"/> to <see cref="TreeTileType.Normal"/> when all branches are cut off from tile</param>
+        public static void CheckTree(int x, int y, TreeSettings settings, bool breakTiles = true, bool fixFrames = true)
 		{
 			Tile t = Framing.GetTileSafely(x, y);
 			if (t.TileType != settings.TreeTileType) return;
@@ -445,6 +503,9 @@ namespace CustomTreeLib
 			}
 		}
 
+		/// <summary>
+		/// Changes the given coordinates to point to tree bottom
+		/// </summary>
 		public static void GetTreeBottom(ref int x, ref int y)
 		{
 			TreeTileInfo info = TreeTileInfo.GetInfo(x, y);
@@ -464,22 +525,62 @@ namespace CustomTreeLib
 		}
     }
 
+	/// <summary>
+	/// Tree statistics
+	/// </summary>
     public struct TreeStats 
 	{
+		/// <summary>
+		/// Total tree blocks
+		/// </summary>
 		public int TotalBlocks;
+
+		/// <summary>
+		/// Total tree branches
+		/// </summary>
 		public int TotalBranches;
+
+		/// <summary>
+		/// Total leafy branches
+		/// </summary>
 		public int LeafyBranches;
 
+		/// <summary>
+		/// True if tree top exisis and not broken
+		/// </summary>
 		public bool HasTop;
+
+		/// <summary>
+		/// True if tree top exisis and broken
+		/// </summary>
 		public bool BrokenTop;
 
+		/// <summary>
+		/// True if thee have left root
+		/// </summary>
 		public bool LeftRoot;
+
+		/// <summary>
+		/// True if thee have right root
+		/// </summary>
 		public bool RightRoot;
 
+		/// <summary>
+		/// Tree top position
+		/// </summary>
 		public Point Top = new(0, int.MaxValue);
+
+		/// <summary>
+		/// Tree bottom position
+		/// </summary>
 		public Point Bottom;
+
+		/// <summary>
+		/// Tree ground tile type
+		/// </summary>
 		public ushort GroundType;
 
+		/// <summary/>
         public override string ToString()
         {
 			return $"T:{TotalBlocks} " +
@@ -492,5 +593,8 @@ namespace CustomTreeLib
         }
     }
 
+	/// <summary>
+	/// Tree tile with position and its info
+	/// </summary>
 	public record struct PositionedTreeTile(Point Pos, TreeTileInfo Info);
 }

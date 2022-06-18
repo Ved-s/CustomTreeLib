@@ -208,6 +208,9 @@ namespace CustomTreeLib
             };
         }
 
+        /// <summary>
+        /// Gets current tree settings
+        /// </summary>
         public TreeSettings GetTreeSettings()
         {
             return new()
@@ -221,7 +224,6 @@ namespace CustomTreeLib
                 WallTypeCheck = ValidWallType,
 
                 TopPaddingNeeded = TopPadding,
-                CanGrowMoreCheck = CanGrowMore,
 
                 BranchChance = BranchChance,
                 BrokenTopChance = BrokenTopChance,
@@ -267,7 +269,7 @@ namespace CustomTreeLib
         public virtual bool FilterDefaultTreeShakeItemDrop(int item) => item != ItemID.Acorn;
 
         /// <summary>
-        /// This is executed when tree is being shook, return true to run vanilla code for tree shaking
+        /// This is executed when tree is being shook, return true to continue vanilla code for tree shaking
         /// </summary>
         public virtual bool Shake(int x, int y, ref bool createLeaves) => true;
 
@@ -341,52 +343,6 @@ namespace CustomTreeLib
                 TopTextureCache = ModContent.Request<Texture2D>(TopTexture, AssetRequestMode.ImmediateLoad).Value;
             return TopTextureCache;
 
-        }
-
-        public static bool TryGetTreeSettingsByType(int tile, out TreeSettings settings)
-        {
-            switch (tile)
-            {
-                case 583:
-                    settings = new(WorldGen.GrowTreeSettings.Profiles.GemTree_Topaz);
-                    return true;
-                case 584:
-                    settings = new(WorldGen.GrowTreeSettings.Profiles.GemTree_Amethyst);
-                    return true;
-                case 585:
-                    settings = new(WorldGen.GrowTreeSettings.Profiles.GemTree_Sappphire);
-                    return true;
-                case 586:
-                    settings = new(WorldGen.GrowTreeSettings.Profiles.GemTree_Emerald);
-                    return true;
-                case 587:
-                    settings = new(WorldGen.GrowTreeSettings.Profiles.GemTree_Ruby);
-                    return true;
-                case 588:
-                    settings = new(WorldGen.GrowTreeSettings.Profiles.GemTree_Diamond);
-                    return true;
-                case 589:
-                    settings = new(WorldGen.GrowTreeSettings.Profiles.GemTree_Amber);
-                    return true;
-                case 596:
-                    settings = new(WorldGen.GrowTreeSettings.Profiles.VanityTree_Sakura);
-                    return true;
-                case 616:
-                    settings = new(WorldGen.GrowTreeSettings.Profiles.VanityTree_Willow);
-                    return true;
-                case 5:
-                    settings = TreeSettings.VanillaCommonTree;
-                    return true;
-            }
-
-            if (ByTileType.TryGetValue(tile, out CustomTree tree))
-            {
-                settings = tree.GetTreeSettings();
-                return true;
-            }
-
-            settings = default;
-            return false;
         }
     }
 

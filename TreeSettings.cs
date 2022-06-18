@@ -9,24 +9,72 @@ using Terraria.ID;
 
 namespace CustomTreeLib
 {
+    /// <summary>
+    /// CustomTrees growing settings
+    /// </summary>
     public struct TreeSettings
     {
+        /// <summary>
+        /// Tree tile type
+        /// </summary>
         public ushort TreeTileType;
 
-        public Func<int, bool> GroundTypeCheck, WallTypeCheck;
-        public CanTreeGrowMoreDelegate CanGrowMoreCheck;
+        /// <summary>
+        /// Check if ground tile type is valid to grow on
+        /// </summary>
+        public Func<int, bool> GroundTypeCheck;
 
+        /// <summary>
+        /// Check if behind wall type is valid to grow
+        /// </summary>
+        public Func<int, bool> WallTypeCheck;
+
+        /// <summary>
+        /// Minimum tree height
+        /// </summary>
         public int MinHeight;
+
+        /// <summary>
+        /// Maximum tree height
+        /// </summary>
         public int MaxHeight;
+
+        /// <summary>
+        /// Tree top leaves height in tiles (4 for vanilla)
+        /// </summary>
         public int TopPaddingNeeded;
 
+        /// <summary>
+        /// 1 in X chance for not generating root
+        /// </summary>
         public int NoRootChance;
+
+        /// <summary>
+        /// 1 in X chance for generating tile with less bark
+        /// </summary>
         public int LessBarkChance;
+
+        /// <summary>
+        /// 1 in X chance for generating tile with more bark
+        /// </summary>
         public int MoreBarkChance;
+
+        /// <summary>
+        /// 1 in X chance for generating a branch
+        /// </summary>
         public int BranchChance;
+
+        /// <summary>
+        /// 1 in X chance that generated branch will be without leaves
+        /// </summary>
         public int NotLeafyBranchChance;
+
+        /// <summary>
+        /// 1 in X chance that thee top will be broken
+        /// </summary>
         public int BrokenTopChance;
 
+        /// <summary/>
         public TreeSettings(WorldGen.GrowTreeSettings vanillaSettings) 
         {
             TreeTileType = vanillaSettings.TreeTileType;
@@ -45,10 +93,11 @@ namespace CustomTreeLib
             BranchChance = 4;
             NotLeafyBranchChance = 3;
             BrokenTopChance = 13;
-
-            CanGrowMoreCheck = VanillaTreeCanGrowMore;
         }
 
+        /// <summary>
+        /// Settings for vanilla common tree
+        /// </summary>
         public static TreeSettings VanillaCommonTree = new()
         {
             TreeTileType = TileID.Trees,
@@ -66,17 +115,6 @@ namespace CustomTreeLib
             NotLeafyBranchChance = 3,
             BrokenTopChance = 13,
             NoRootChance = 3,
-
-            CanGrowMoreCheck = VanillaTreeCanGrowMore,
-        };
-
-        public static bool VanillaTreeCanGrowMore(Point topPos, TreeSettings settings, TreeStats stats) 
-        {
-            float mod = (settings.MaxHeight / 17f);
-
-            return stats.LeafyBranches < 3 * mod && stats.TotalBranches < 5 * mod && stats.TotalBlocks < 20 * mod;
-        }
+        }; 
     }
-
-    public delegate bool CanTreeGrowMoreDelegate(Point topPos, TreeSettings settings, TreeStats stats);
 }

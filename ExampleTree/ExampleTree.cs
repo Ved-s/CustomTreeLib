@@ -4,18 +4,17 @@ using Terraria.ID;
 
 #pragma warning disable CS1591
 
-namespace CustomTreeLib
+namespace CustomTreeLib.ExampleTree
 {
-    // Example tree
     public class ExampleTree : CustomTree
     {
-        public override string SaplingTexture => "CustomTreeLib/ExampleSapling";
-        public override string AcornTexture => "CustomTreeLib/ExampleAcorn";
+        public override string SaplingTexture => "CustomTreeLib/ExampleTree/ExampleSapling";
+        public override string AcornTexture => "CustomTreeLib/ExampleTree/ExampleAcorn";
         public override string TileTexture => "Terraria/Images/Tiles_583";
         public override string TopTexture => "Terraria/Images/Tree_Tops_30";
         public override string BranchTexture => "Terraria/Images/Tree_Branches_26";
 
-        public override string LeafTexture => "CustomTreeLib/ExampleLeaf";
+        public override string LeafTexture => "CustomTreeLib/ExampleTree/ExampleLeaf";
 
         public override int[] ValidGroundTiles => new int[] { TileID.Grass };
 
