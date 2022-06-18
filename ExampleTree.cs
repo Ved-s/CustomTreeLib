@@ -2,6 +2,8 @@
 using Terraria;
 using Terraria.ID;
 
+#pragma warning disable CS1591
+
 namespace CustomTreeLib
 {
     // Example tree
@@ -42,6 +44,24 @@ namespace CustomTreeLib
             topTextureFrameWidth = 118;
             topTextureFrameHeight = 96;
             floorY = 0;
+            return true;
+        }
+
+        public override bool CreateDust(int x, int y, ref int dustType)
+        {
+            TreeTileInfo info = TreeTileInfo.GetInfo(x, y);
+            switch (info.Type)
+            {
+                case TreeTileType.LeafyBranch:
+                    dustType = DustID.Clentaminator_Red;
+                    break;
+                case TreeTileType.LeafyTop:
+                    dustType = DustID.WoodFurniture;
+                    break;
+                default:
+                    dustType = DustID.Stone;
+                    break;
+            }
             return true;
         }
     }

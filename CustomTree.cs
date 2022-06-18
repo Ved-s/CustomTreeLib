@@ -302,6 +302,19 @@ namespace CustomTreeLib
         }
 
         /// <summary>
+        /// Woks the same as ModTile.CreateDust<br/>
+        /// Allows to change dust type created or to disable tile dust
+        /// </summary>
+        /// <param name="x">Tile X position</param>
+        /// <param name="y">Tile Y position</param>
+        /// <param name="dustType">Tile dust type</param>
+        /// <returns>False to stop dust from creating</returns>
+        public virtual bool CreateDust(int x, int y, ref int dustType)
+        {
+            return true;
+        }
+
+        /// <summary>
         /// Gets texture coordinates data for custom top texture
         /// </summary>
         public virtual bool GetTreeFoliageData(int i, int j, int xoffset, ref int treeFrame, out int floorY, out int topTextureFrameWidth, out int topTextureFrameHeight)
@@ -309,6 +322,12 @@ namespace CustomTreeLib
             int v = 0;
             return WorldGen.GetCommonTreeFoliageData(i, j, xoffset, ref treeFrame, ref v, out floorY, out topTextureFrameWidth, out topTextureFrameHeight);
         }
+
+        /// <summary>
+        /// Method for getting top and branch textures
+        /// </summary>
+        /// <param name="branch">Is branch texture</param>
+        /// <returns></returns>
         public Texture2D GetFoliageTexture(bool branch)
         {
             if (branch)
@@ -557,6 +576,8 @@ namespace CustomTreeLib
             tileFrameX = (short)(tileFrameX / 18 * 22);
             tileFrameY = (short)(tileFrameY / 18 * 22);
         }
+
+        public override bool CreateDust(int i, int j, ref int type) => Tree?.CreateDust(i, j, ref type) ?? true;
     }
 
     [Autoload(false)]
