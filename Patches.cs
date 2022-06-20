@@ -1,18 +1,14 @@
-﻿using Microsoft.Xna.Framework.Graphics;
+﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
+using System;
 using System.Reflection;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.Enums;
 using Terraria.GameContent.Drawing;
 using Terraria.ModLoader;
-using MonoMod.RuntimeDetour.HookGen;
-using System;
-using Terraria.ModLoader.IO;
-using System.IO;
-using Microsoft.Xna.Framework;
-using Terraria.GameContent;
 
 namespace CustomTreeLib
 {
@@ -152,7 +148,7 @@ namespace CustomTreeLib
                 i => i.MatchCall("Terraria.WorldGen", "IsTileALeafyTreeTop")
                 ))
             {
-                Mod.Logger.WarnFormat("Patch error: {0} (ShakeTree:GetXY)", il.Method.FullName);
+                Mod.Logger.Warn("Patch error: ShakeTree:GetXY");
                 return;
             }
 
@@ -167,38 +163,65 @@ namespace CustomTreeLib
              */
 
             ILLabel ifEnd = null;
-
-            if (!c.TryGotoNext(
-                i => i.MatchCall<Player>("FindClosest"),
-                i => i.MatchLdcR4(0),
-                i => i.MatchLdcR4(0),
-                i => i.MatchCall<Projectile>("NewProjectile"),
-                i => i.MatchPop(),
-                i => i.MatchBr(out ifEnd)
-                ))
-            {
-                Mod.Logger.WarnFormat("Patch error: {0} (ShakeTree:FindIfChain)", il.Method.FullName);
-                return;
-            }
-
             int createLeaves = -1;
-            /*
-              IL_00EF: stloc.s   flag
-              
-              IL_00F1: ldsfld    bool Terraria.Main::getGoodWorld
-              IL_00F6: brfalse.s IL_0166
-             */
 
-            if (!c.TryGotoPrev(
-                i => i.MatchStloc(out createLeaves),
-                i => i.MatchLdsfld("Terraria.Main", "getGoodWorld"),
-                i => i.MatchBrfalse(out _)
-                ))
+            if (BuildInfo.tMLVersion >= new Version(2022, 6, 71, 0))
             {
-                Mod.Logger.WarnFormat("Patch error: {0} (ShakeTree:FindPatchPlace)", il.Method.FullName);
-                return;
+                /*
+                  IL_00F5: ldloc.0
+	              IL_00F6: ldloc.1
+	              IL_00F7: ldloc.3
+	              IL_00F8: ldloca.s  flag
+	              IL_00FA: call      bool Terraria.ModLoader.PlantLoader::ShakeTree(int32, int32, int32, bool&)
+	              IL_00FF: brfalse   IL_0DEC
+                 */
+
+                if (!c.TryGotoNext(
+                    x=>x.MatchLdloc(out _),
+                    x=>x.MatchLdloc(out _),
+                    x=>x.MatchLdloc(out _),
+                    x=>x.MatchLdloca(out createLeaves),
+                    x=>x.MatchCall("Terraria.ModLoader.PlantLoader", "ShakeTree"),
+                    x=>x.MatchBrfalse(out ifEnd)
+                    ))
+                {
+                    Mod.Logger.Warn("Patch error: ShakeTree:NewIfChainPatch");
+                    return;
+                }
             }
-            c.Index++;
+            else
+            {
+                if (!c.TryGotoNext(
+                    i => i.MatchCall<Player>("FindClosest"),
+                    i => i.MatchLdcR4(0),
+                    i => i.MatchLdcR4(0),
+                    i => i.MatchCall<Projectile>("NewProjectile"),
+                    i => i.MatchPop(),
+                    i => i.MatchBr(out ifEnd)
+                    ))
+                {
+                    Mod.Logger.Warn("Patch error: ShakeTree:FindIfChain");
+                    return;
+                }
+
+                /*
+                  IL_00EF: stloc.s   flag
+
+                  IL_00F1: ldsfld    bool Terraria.Main::getGoodWorld
+                  IL_00F6: brfalse.s IL_0166
+                 */
+
+                if (!c.TryGotoPrev(
+                    i => i.MatchStloc(out createLeaves),
+                    i => i.MatchLdsfld("Terraria.Main", "getGoodWorld"),
+                    i => i.MatchBrfalse(out _)
+                    ))
+                {
+                    Mod.Logger.Warn("Patch error: ShakeTree:FindPatchPlace");
+                    return;
+                }
+                c.Index++;
+            }
 
             c.Emit(OpCodes.Ldloc, x);
             c.Emit(OpCodes.Ldloc, y);
@@ -271,23 +294,6 @@ namespace CustomTreeLib
                 c.Emit<Patches>(OpCodes.Call, nameof(GetTexturesHook));
 
                 branchPatches++;
-
-                //if (c.TryGotoNext(x => x.MatchCallvirt<SpriteBatch>("Draw")))
-                //{
-                //    c.Emit(OpCodes.Ldloc, type);
-                //    c.Emit(OpCodes.Ldc_I4_1);
-                //    c.Emit(OpCodes.Ldloc, color);
-                //    c.Emit<Patches>(OpCodes.Call, nameof(BeforeDrawTexture));
-                //    c.Index++;
-                //    c.Emit(OpCodes.Ldloc, type);
-                //    c.Emit(OpCodes.Ldc_I4_1);
-                //    c.Emit(OpCodes.Ldloc, color);
-                //    c.Emit<Patches>(OpCodes.Call, nameof(AfterDrawTexture));
-                //}
-                //else
-                //{
-                //    Mod.Logger.WarnFormat("Patch error: expected SpriteBatch.Draw after GetTreeBranchTexture in DrawTrees:HookTopDraws");
-                //}
             }
 
             c.Index = 0;
@@ -305,23 +311,6 @@ namespace CustomTreeLib
                 c.Emit<Patches>(OpCodes.Call, nameof(GetTexturesHook));
 
                 topPatches++;
-
-                //if (c.TryGotoNext(x => x.MatchCallvirt<SpriteBatch>("Draw")))
-                //{
-                //    c.Emit(OpCodes.Ldloc, type);
-                //    c.Emit(OpCodes.Ldc_I4_0);
-                //    c.Emit(OpCodes.Ldloc, color);
-                //    c.Emit<Patches>(OpCodes.Call, nameof(BeforeDrawTexture));
-                //    c.Index++;
-                //    c.Emit(OpCodes.Ldloc, type);
-                //    c.Emit(OpCodes.Ldc_I4_0);
-                //    c.Emit(OpCodes.Ldloc, color);
-                //    c.Emit<Patches>(OpCodes.Call, nameof(AfterDrawTexture));
-                //}
-                //else
-                //{
-                //    Mod.Logger.WarnFormat("Patch error: expected SpriteBatch.Draw after GetTreeTopTexture in DrawTrees:HookTopDraws");
-                //}
             }
 
             if (branchPatches < 2)
@@ -336,7 +325,7 @@ namespace CustomTreeLib
             }
         }
 
-        private void PatchTreeFrame(ILContext il) 
+        private void PatchTreeFrame(ILContext il)
         {
             ILCursor c = new(il);
             /*
@@ -358,10 +347,10 @@ namespace CustomTreeLib
             if (!c.TryGotoNext(
                 MoveType.After,
 
-                x=>x.MatchLdloca(out tile),
-                x=>x.MatchCall<Tile>("get_frameX"),
-                x=>x.MatchLdindI2(),
-                x=>x.MatchStloc(out frameX),
+                x => x.MatchLdloca(out tile),
+                x => x.MatchCall<Tile>("get_frameX"),
+                x => x.MatchLdindI2(),
+                x => x.MatchStloc(out frameX),
 
                 x => x.MatchLdloca(tile),
                 x => x.MatchCall<Tile>("get_frameY"),
@@ -578,38 +567,38 @@ namespace CustomTreeLib
 
             if (!c.TryGotoNext(
                 MoveType.Before,
-                x=>x.MatchLdloc(out _),
-                x=>x.MatchLdloc(out position),
+                x => x.MatchLdloc(out _),
+                x => x.MatchLdloc(out position),
 
-                x=>x.MatchLdloc(out treeFrame),
-                x=>x.MatchLdloc(out _),
-                x=>x.MatchLdcI4(out _),
-                x=>x.MatchAdd(),
-                x=>x.MatchMul(),
-                x=>x.MatchLdcI4(out _),
-                x=>x.MatchLdloc(out _),
-                x=>x.MatchLdloc(out _),
-                x=>x.MatchNewobj(out _),
-                x=>x.MatchNewobj(out _),
+                x => x.MatchLdloc(out treeFrame),
+                x => x.MatchLdloc(out _),
+                x => x.MatchLdcI4(out _),
+                x => x.MatchAdd(),
+                x => x.MatchMul(),
+                x => x.MatchLdcI4(out _),
+                x => x.MatchLdloc(out _),
+                x => x.MatchLdloc(out _),
+                x => x.MatchNewobj(out _),
+                x => x.MatchNewobj(out _),
 
-                x=>x.MatchLdloc(out color),
+                x => x.MatchLdloc(out color),
 
-                x=>x.MatchLdloc(out rotationA),
-                x=>x.MatchLdloc(out rotationB),
-                x=>x.MatchMul(),
+                x => x.MatchLdloc(out rotationA),
+                x => x.MatchLdloc(out rotationB),
+                x => x.MatchMul(),
 
-                x=>x.MatchLdloc(out topTextureFrameWidth),
-                x=>x.MatchLdcI4(2),
-                x=>x.MatchDiv(),
-                x=>x.MatchConvR4(),
-                x=>x.MatchLdloc(out topTextureFrameHeight),
-                x=>x.MatchConvR4(),
-                x=>x.MatchNewobj(out _),
+                x => x.MatchLdloc(out topTextureFrameWidth),
+                x => x.MatchLdcI4(2),
+                x => x.MatchDiv(),
+                x => x.MatchConvR4(),
+                x => x.MatchLdloc(out topTextureFrameHeight),
+                x => x.MatchConvR4(),
+                x => x.MatchNewobj(out _),
 
-                x=>x.MatchLdcR4(out _),
-                x=>x.MatchLdcI4(out _),
-                x=>x.MatchLdcR4(out _),
-                x=>x.MatchCallvirt<SpriteBatch>("Draw")
+                x => x.MatchLdcR4(out _),
+                x => x.MatchLdcI4(out _),
+                x => x.MatchLdcR4(out _),
+                x => x.MatchCallvirt<SpriteBatch>("Draw")
                 ))
             {
                 Mod.Logger.Warn("Patch error: DrawTrees:HookTopDrawing");

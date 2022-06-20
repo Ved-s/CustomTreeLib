@@ -81,25 +81,4 @@ namespace CustomTreeLib
         /// <summary/>
         public void Unload() => TreeLoader.UnloadGlobal(this);
     }
-
-    public class TestGlobalTree : GlobalTree 
-    {
-        public override bool PreDrawFoliage(int type, Vector2 position, Point size, TreeFoliageType foliageType, int treeFrame, Vector2 origin, Color color, float rotation)
-        {
-            return foliageType != TreeFoliageType.Top || treeFrame == 0;
-        }
-
-        public override void PostDrawFoliage(int type, Vector2 position, Point size, TreeFoliageType foliageType, int treeFrame, Vector2 origin, Color color, float rotation)
-        {
-            Color c = foliageType switch
-            {
-                TreeFoliageType.Top => Color.Red,
-                TreeFoliageType.LeftBranch => Color.Green,
-                TreeFoliageType.RightBranch => Color.Blue,
-                _ => Color.White
-            };
-
-            Main.spriteBatch.Draw(TextureAssets.MagicPixel.Value, position, new Rectangle(0, 0, size.X, size.Y), c * .3f, rotation, origin, 1f, SpriteEffects.None, 1f);
-        }
-    }
 }
