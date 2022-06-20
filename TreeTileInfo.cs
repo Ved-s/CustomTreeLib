@@ -403,4 +403,17 @@ namespace CustomTreeLib
         LeafyTop
     }
 
+    /// <summary/>
+    public enum TreeFoliageType 
+    {
+        /// <summary/>
+        Top,
+
+        /// <summary/>
+        LeftBranch,
+
+        /// <summary/>
+        RightBranch
+    }
+
 }

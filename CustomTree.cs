@@ -326,6 +326,37 @@ namespace CustomTreeLib
         }
 
         /// <summary>
+        /// Executed before drawing tree foliage<br/>
+        /// Return false to prevent foliage drawing
+        /// </summary>
+        /// <param name="position">Draw position</param>
+        /// <param name="size">Draw size</param>
+        /// <param name="foliageType">Foliage type</param>
+        /// <param name="treeFrame">Tree style frame</param>
+        /// <param name="origin">Draw origin</param>
+        /// <param name="color">Draw color</param>
+        /// <param name="rotation">Draw rotation</param>
+        /// <returns></returns>
+        public virtual bool PreDrawFoliage(Vector2 position, Point size, TreeFoliageType foliageType, int treeFrame, Vector2 origin, Color color, float rotation)
+        {
+            return true;
+        }
+
+        /// <summary>
+        /// Executed after drawing tree foliage
+        /// </summary>
+        /// <param name="position">Draw position</param>
+        /// <param name="size">Draw size</param>
+        /// <param name="foliageType">Foliage type</param>
+        /// <param name="treeFrame">Tree style frame</param>
+        /// <param name="origin">Draw origin</param>
+        /// <param name="color">Draw color</param>
+        /// <param name="rotation">Draw rotation</param>
+        public virtual void PostDrawFoliage(Vector2 position, Point size, TreeFoliageType foliageType, int treeFrame, Vector2 origin, Color color, float rotation)
+        {
+        }
+
+        /// <summary>
         /// Method for getting top and branch textures
         /// </summary>
         /// <param name="branch">Is branch texture</param>

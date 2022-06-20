@@ -11,6 +11,8 @@ using MonoMod.RuntimeDetour.HookGen;
 using System;
 using Terraria.ModLoader.IO;
 using System.IO;
+using Microsoft.Xna.Framework;
+using Terraria.GameContent;
 
 namespace CustomTreeLib
 {
@@ -207,6 +209,7 @@ namespace CustomTreeLib
         private void TileDrawing_DrawTrees(ILContext il)
         {
             PatchTreeFrame(il);
+            PatchFoliageRendering(il);
 
             ILCursor c = new(il);
             /*
@@ -269,22 +272,22 @@ namespace CustomTreeLib
 
                 branchPatches++;
 
-                if (c.TryGotoNext(x => x.MatchCallvirt<SpriteBatch>("Draw")))
-                {
-                    c.Emit(OpCodes.Ldloc, type);
-                    c.Emit(OpCodes.Ldc_I4_1);
-                    c.Emit(OpCodes.Ldloc, color);
-                    c.Emit<Patches>(OpCodes.Call, nameof(BeforeDrawTexture));
-                    c.Index++;
-                    c.Emit(OpCodes.Ldloc, type);
-                    c.Emit(OpCodes.Ldc_I4_1);
-                    c.Emit(OpCodes.Ldloc, color);
-                    c.Emit<Patches>(OpCodes.Call, nameof(AfterDrawTexture));
-                }
-                else
-                {
-                    Mod.Logger.WarnFormat("Patch error: expected SpriteBatch.Draw after GetTreeBranchTexture in DrawTrees:HookTopDraws");
-                }
+                //if (c.TryGotoNext(x => x.MatchCallvirt<SpriteBatch>("Draw")))
+                //{
+                //    c.Emit(OpCodes.Ldloc, type);
+                //    c.Emit(OpCodes.Ldc_I4_1);
+                //    c.Emit(OpCodes.Ldloc, color);
+                //    c.Emit<Patches>(OpCodes.Call, nameof(BeforeDrawTexture));
+                //    c.Index++;
+                //    c.Emit(OpCodes.Ldloc, type);
+                //    c.Emit(OpCodes.Ldc_I4_1);
+                //    c.Emit(OpCodes.Ldloc, color);
+                //    c.Emit<Patches>(OpCodes.Call, nameof(AfterDrawTexture));
+                //}
+                //else
+                //{
+                //    Mod.Logger.WarnFormat("Patch error: expected SpriteBatch.Draw after GetTreeBranchTexture in DrawTrees:HookTopDraws");
+                //}
             }
 
             c.Index = 0;
@@ -303,32 +306,32 @@ namespace CustomTreeLib
 
                 topPatches++;
 
-                if (c.TryGotoNext(x => x.MatchCallvirt<SpriteBatch>("Draw")))
-                {
-                    c.Emit(OpCodes.Ldloc, type);
-                    c.Emit(OpCodes.Ldc_I4_0);
-                    c.Emit(OpCodes.Ldloc, color);
-                    c.Emit<Patches>(OpCodes.Call, nameof(BeforeDrawTexture));
-                    c.Index++;
-                    c.Emit(OpCodes.Ldloc, type);
-                    c.Emit(OpCodes.Ldc_I4_0);
-                    c.Emit(OpCodes.Ldloc, color);
-                    c.Emit<Patches>(OpCodes.Call, nameof(AfterDrawTexture));
-                }
-                else
-                {
-                    Mod.Logger.WarnFormat("Patch error: expected SpriteBatch.Draw after GetTreeTopTexture in DrawTrees:HookTopDraws");
-                }
+                //if (c.TryGotoNext(x => x.MatchCallvirt<SpriteBatch>("Draw")))
+                //{
+                //    c.Emit(OpCodes.Ldloc, type);
+                //    c.Emit(OpCodes.Ldc_I4_0);
+                //    c.Emit(OpCodes.Ldloc, color);
+                //    c.Emit<Patches>(OpCodes.Call, nameof(BeforeDrawTexture));
+                //    c.Index++;
+                //    c.Emit(OpCodes.Ldloc, type);
+                //    c.Emit(OpCodes.Ldc_I4_0);
+                //    c.Emit(OpCodes.Ldloc, color);
+                //    c.Emit<Patches>(OpCodes.Call, nameof(AfterDrawTexture));
+                //}
+                //else
+                //{
+                //    Mod.Logger.WarnFormat("Patch error: expected SpriteBatch.Draw after GetTreeTopTexture in DrawTrees:HookTopDraws");
+                //}
             }
 
             if (branchPatches < 2)
             {
-                if (branchPatches == 0) Mod.Logger.WarnFormat("Patch error: DrawTrees:GetTreeBranchTexturePatch");
+                if (branchPatches == 0) Mod.Logger.Warn("Patch error: DrawTrees:GetTreeBranchTexturePatch");
                 else Mod.Logger.WarnFormat("Patch warning: expected 2 patches in DrawTrees:GetTreeBranchTexturePatch, got {1}", topPatches);
             }
             if (topPatches < 2)
             {
-                if (topPatches == 0) Mod.Logger.WarnFormat("Patch error: DrawTrees:GetTreeTopTexturePatch");
+                if (topPatches == 0) Mod.Logger.Warn("Patch error: DrawTrees:GetTreeTopTexturePatch");
                 else Mod.Logger.WarnFormat("Patch warning: expected 2 patches in DrawTrees:GetTreeTopTexturePatch, got {1}", topPatches);
             }
         }
@@ -375,6 +378,306 @@ namespace CustomTreeLib
             c.Emit(OpCodes.Ldloca, frameY);
             c.Emit<Patches>(OpCodes.Call, nameof(TreeFrameHook));
         }
+        private void PatchFoliageRendering(ILContext il)
+        {
+            ILCursor c = new(il);
+
+            /*
+              IL_0079: ldloca.s  tile
+		      IL_007B: call      instance uint16& Terraria.Tile::get_type()
+             */
+
+            int tile = -1;
+
+            if (!c.TryGotoNext(
+                x => x.MatchLdloca(out tile),
+                x => x.MatchCall<Tile>("get_type")
+                ))
+            {
+                Mod.Logger.Warn("Patch error: DrawTrees:GetTreeTypeForFoliageRender");
+                return;
+            }
+
+            /*
+			  IL_05C9: ldloc.s   treeBranchTexture
+			  IL_05CB: ldloc.s   position
+
+			  IL_05CD: ldc.i4.s  42 // frameOffsetX
+			  IL_05CF: ldloc.s   treeFrame
+			  IL_05D1: ldc.i4.s  42
+			  IL_05D3: mul
+			  IL_05D4: ldc.i4.s  40
+			  IL_05D6: ldc.i4.s  40
+			  IL_05D8: newobj    instance void [FNA]Microsoft.Xna.Framework.Rectangle::.ctor(int32, int32, int32, int32)
+
+			  IL_05DD: newobj    instance void valuetype [System.Runtime]System.Nullable`1<valuetype [FNA]Microsoft.Xna.Framework.Rectangle>::.ctor(!0)
+
+			  IL_05E2: ldloc.s   color
+
+			  IL_05E4: ldloc.s   num8
+			  IL_05E6: ldloc.s   num4
+			  IL_05E8: mul
+
+			  IL_05E9: ldc.r4    0.0
+			  IL_05EE: ldc.r4    30
+			  IL_05F3: newobj    instance void [FNA]Microsoft.Xna.Framework.Vector2::.ctor(float32, float32)
+
+			  IL_05F8: ldc.r4    1
+			  IL_05FD: ldc.i4.0
+			  IL_05FE: ldc.r4    0.0
+			  IL_0603: callvirt  instance void [FNA]Microsoft.Xna.Framework.Graphics.SpriteBatch::Draw(class [FNA]Microsoft.Xna.Framework.Graphics.Texture2D, valuetype [FNA]Microsoft.Xna.Framework.Vector2, valuetype [System.Runtime]System.Nullable`1<valuetype [FNA]Microsoft.Xna.Framework.Rectangle>, valuetype [FNA]Microsoft.Xna.Framework.Color, float32, valuetype [FNA]Microsoft.Xna.Framework.Vector2, float32, valuetype [FNA]Microsoft.Xna.Framework.Graphics.SpriteEffects, float32)
+             */
+
+            int branchPatches = 0;
+
+            int position = -1,
+                sizeX = -1,
+                sizeY = -1,
+                frameOffsetX = -1,
+                treeFrame = -1,
+                color = -1,
+                rotationA = -1,
+                rotationB = -1;
+
+            float originX = -1,
+                  originY = -1;
+
+            while (c.TryGotoNext(
+                MoveType.Before,
+                x => x.MatchLdloc(out _),
+                x => x.MatchLdloc(out position),
+
+                x => x.MatchLdcI4(out frameOffsetX),
+                x => x.MatchLdloc(out treeFrame),
+                x => x.MatchLdcI4(out _),
+                x => x.MatchMul(),
+                x => x.MatchLdcI4(out sizeX),
+                x => x.MatchLdcI4(out sizeY),
+                x => x.MatchNewobj(out _),
+
+                x => x.MatchNewobj(out _),
+
+                x => x.MatchLdloc(out color),
+
+                x => x.MatchLdloc(out rotationA),
+                x => x.MatchLdloc(out rotationB),
+                x => x.MatchMul(),
+
+                x => x.MatchLdcR4(out originX),
+                x => x.MatchLdcR4(out originY),
+                x => x.MatchNewobj(out _),
+
+                x => x.MatchLdcR4(out _),
+                x => x.MatchLdcI4(out _),
+                x => x.MatchLdcR4(out _),
+                x => x.MatchCallvirt<SpriteBatch>("Draw")
+                ))
+            {
+                ILLabel skipBranchDraw = c.DefineLabel();
+
+                c.Emit(OpCodes.Pop); // remove spriteBatch, there is an if jumping to prev instruction
+
+                c.Emit(OpCodes.Ldloc, tile);
+                c.Emit(OpCodes.Ldloc, position);
+
+                c.Emit(OpCodes.Ldc_I4, sizeX);
+                c.Emit(OpCodes.Ldc_I4, sizeY);
+                c.Emit(OpCodes.Newobj, typeof(Point).GetConstructor(new[] { typeof(int), typeof(int) }));
+
+                c.Emit(OpCodes.Ldc_I4, frameOffsetX < 42 ? 1 : 2);
+                c.Emit(OpCodes.Ldloc, treeFrame);
+
+                c.Emit(OpCodes.Ldc_R4, originX);
+                c.Emit(OpCodes.Ldc_R4, originY);
+                c.Emit(OpCodes.Newobj, typeof(Vector2).GetConstructor(new[] { typeof(float), typeof(float) }));
+
+                c.Emit(OpCodes.Ldloc, color);
+
+                c.Emit(OpCodes.Ldloc, rotationA);
+                c.Emit(OpCodes.Ldloc, rotationB);
+                c.Emit(OpCodes.Mul);
+
+                c.Emit<Patches>(OpCodes.Call, nameof(BeforeDrawTreeFoliage));
+                c.Emit(OpCodes.Brfalse, skipBranchDraw);
+
+                c.Emit<Main>(OpCodes.Ldsfld, "spriteBatch"); // add it back
+
+                c.Index += 21;
+
+                c.Emit(OpCodes.Ldloc, tile);
+                c.Emit(OpCodes.Ldloc, position);
+
+                c.Emit(OpCodes.Ldc_I4, sizeX);
+                c.Emit(OpCodes.Ldc_I4, sizeY);
+                c.Emit(OpCodes.Newobj, typeof(Point).GetConstructor(new[] { typeof(int), typeof(int) }));
+
+                c.Emit(OpCodes.Ldc_I4, frameOffsetX < 42 ? 1 : 2);
+                c.Emit(OpCodes.Ldloc, treeFrame);
+
+                c.Emit(OpCodes.Ldc_R4, originX);
+                c.Emit(OpCodes.Ldc_R4, originY);
+                c.Emit(OpCodes.Newobj, typeof(Vector2).GetConstructor(new[] { typeof(float), typeof(float) }));
+
+                c.Emit(OpCodes.Ldloc, color);
+
+                c.Emit(OpCodes.Ldloc, rotationA);
+                c.Emit(OpCodes.Ldloc, rotationB);
+                c.Emit(OpCodes.Mul);
+                c.Emit<Patches>(OpCodes.Call, nameof(AfterDrawTreeFoliage));
+
+                c.MarkLabel(skipBranchDraw);
+
+                branchPatches++;
+            }
+
+            if (branchPatches < 2)
+            {
+                if (branchPatches == 0) Mod.Logger.Warn("Patch error: DrawTrees:HookBranchDrawing");
+                else Mod.Logger.WarnFormat("Patch warning: expected 2 patches in DrawTrees:HookBranchDrawing, got {1}", branchPatches);
+            }
+
+            /*
+              IL_02A1: ldloc.s   treeTopTexture
+			  IL_02A3: ldloc.s   position2
+
+			  IL_02A5: ldloc.s   treeFrame
+			  IL_02A7: ldloc.s   topTextureFrameWidth2
+			  IL_02A9: ldc.i4.2
+			  IL_02AA: add
+			  IL_02AB: mul
+			  IL_02AC: ldc.i4.0
+			  IL_02AD: ldloc.s   topTextureFrameWidth2
+			  IL_02AF: ldloc.s   topTextureFrameHeight2
+			  IL_02B1: newobj    instance void [FNA]Microsoft.Xna.Framework.Rectangle::.ctor(int32, int32, int32, int32)
+			  IL_02B6: newobj    instance void valuetype [System.Runtime]System.Nullable`1<valuetype [FNA]Microsoft.Xna.Framework.Rectangle>::.ctor(!0)
+
+			  IL_02BB: ldloc.s   color2
+
+			  IL_02BD: ldloc.s   num11
+			  IL_02BF: ldloc.s   num3
+			  IL_02C1: mul
+
+			  IL_02C2: ldloc.s   topTextureFrameWidth2
+			  IL_02C4: ldc.i4.2
+			  IL_02C5: div
+			  IL_02C6: conv.r4
+			  IL_02C7: ldloc.s   topTextureFrameHeight2
+			  IL_02C9: conv.r4
+			  IL_02CA: newobj    instance void [FNA]Microsoft.Xna.Framework.Vector2::.ctor(float32, float32)
+
+			  IL_02CF: ldc.r4    1
+			  IL_02D4: ldc.i4.0
+			  IL_02D5: ldc.r4    0.0
+			  IL_02DA: callvirt  instance void [FNA]Microsoft.Xna.Framework.Graphics.SpriteBatch::Draw(class [FNA]Microsoft.Xna.Framework.Graphics.Texture2D, valuetype [FNA]Microsoft.Xna.Framework.Vector2, valuetype [System.Runtime]System.Nullable`1<valuetype [FNA]Microsoft.Xna.Framework.Rectangle>, valuetype [FNA]Microsoft.Xna.Framework.Color, float32, valuetype [FNA]Microsoft.Xna.Framework.Vector2, float32, valuetype [FNA]Microsoft.Xna.Framework.Graphics.SpriteEffects, float32)
+             */
+
+            c.Index = 0;
+
+            int topTextureFrameWidth = -1,
+                topTextureFrameHeight = -1;
+
+            if (!c.TryGotoNext(
+                MoveType.Before,
+                x=>x.MatchLdloc(out _),
+                x=>x.MatchLdloc(out position),
+
+                x=>x.MatchLdloc(out treeFrame),
+                x=>x.MatchLdloc(out _),
+                x=>x.MatchLdcI4(out _),
+                x=>x.MatchAdd(),
+                x=>x.MatchMul(),
+                x=>x.MatchLdcI4(out _),
+                x=>x.MatchLdloc(out _),
+                x=>x.MatchLdloc(out _),
+                x=>x.MatchNewobj(out _),
+                x=>x.MatchNewobj(out _),
+
+                x=>x.MatchLdloc(out color),
+
+                x=>x.MatchLdloc(out rotationA),
+                x=>x.MatchLdloc(out rotationB),
+                x=>x.MatchMul(),
+
+                x=>x.MatchLdloc(out topTextureFrameWidth),
+                x=>x.MatchLdcI4(2),
+                x=>x.MatchDiv(),
+                x=>x.MatchConvR4(),
+                x=>x.MatchLdloc(out topTextureFrameHeight),
+                x=>x.MatchConvR4(),
+                x=>x.MatchNewobj(out _),
+
+                x=>x.MatchLdcR4(out _),
+                x=>x.MatchLdcI4(out _),
+                x=>x.MatchLdcR4(out _),
+                x=>x.MatchCallvirt<SpriteBatch>("Draw")
+                ))
+            {
+                Mod.Logger.Warn("Patch error: DrawTrees:HookTopDrawing");
+                return;
+            }
+            ILLabel skipDraw = c.DefineLabel();
+
+            c.Emit(OpCodes.Pop);
+
+            c.Emit(OpCodes.Ldloc, tile);
+            c.Emit(OpCodes.Ldloc, position);
+
+            c.Emit(OpCodes.Ldloc, topTextureFrameWidth);
+            c.Emit(OpCodes.Ldloc, topTextureFrameHeight);
+            c.Emit(OpCodes.Newobj, typeof(Point).GetConstructor(new[] { typeof(int), typeof(int) }));
+
+            c.Emit(OpCodes.Ldc_I4, 0);
+            c.Emit(OpCodes.Ldloc, treeFrame);
+
+            c.Emit(OpCodes.Ldloc, topTextureFrameWidth);
+            c.Emit(OpCodes.Ldc_I4_2);
+            c.Emit(OpCodes.Div);
+            c.Emit(OpCodes.Conv_R4);
+            c.Emit(OpCodes.Ldloc, topTextureFrameHeight);
+            c.Emit(OpCodes.Conv_R4);
+            c.Emit(OpCodes.Newobj, typeof(Vector2).GetConstructor(new[] { typeof(float), typeof(float) }));
+
+            c.Emit(OpCodes.Ldloc, color);
+
+            c.Emit(OpCodes.Ldloc, rotationA);
+            c.Emit(OpCodes.Ldloc, rotationB);
+            c.Emit(OpCodes.Mul);
+
+            c.Emit<Patches>(OpCodes.Call, nameof(BeforeDrawTreeFoliage));
+            c.Emit(OpCodes.Brfalse, skipDraw);
+
+            c.Emit<Main>(OpCodes.Ldsfld, "spriteBatch");
+
+            c.Index += 27;
+
+            c.Emit(OpCodes.Ldloc, tile);
+            c.Emit(OpCodes.Ldloc, position);
+
+            c.Emit(OpCodes.Ldloc, topTextureFrameWidth);
+            c.Emit(OpCodes.Ldloc, topTextureFrameHeight);
+            c.Emit(OpCodes.Newobj, typeof(Point).GetConstructor(new[] { typeof(int), typeof(int) }));
+
+            c.Emit(OpCodes.Ldc_I4, 0);
+            c.Emit(OpCodes.Ldloc, treeFrame);
+
+            c.Emit(OpCodes.Ldloc, topTextureFrameWidth);
+            c.Emit(OpCodes.Ldc_I4_2);
+            c.Emit(OpCodes.Div);
+            c.Emit(OpCodes.Conv_R4);
+            c.Emit(OpCodes.Ldloc, topTextureFrameHeight);
+            c.Emit(OpCodes.Conv_R4);
+            c.Emit(OpCodes.Newobj, typeof(Vector2).GetConstructor(new[] { typeof(float), typeof(float) }));
+
+            c.Emit(OpCodes.Ldloc, color);
+
+            c.Emit(OpCodes.Ldloc, rotationA);
+            c.Emit(OpCodes.Ldloc, rotationB);
+            c.Emit(OpCodes.Mul);
+
+            c.Emit<Patches>(OpCodes.Call, nameof(AfterDrawTreeFoliage));
+
+            c.MarkLabel(skipDraw);
+        }
 
         private static void TreeFrameHook(Tile tile, ref short frameX, ref short frameY)
         {
@@ -407,18 +710,27 @@ namespace CustomTreeLib
                 texture = tree.GetFoliageTexture(branch);
             }
         }
-        private static void BeforeDrawTexture(ushort type, bool branch, byte tileColor)
+
+        private static bool BeforeDrawTreeFoliage(Tile tile, Vector2 position, Point size, int type, int treeFrame, Vector2 origin, Color color, float rotation)
         {
-            if (!CustomTree.ByTileType.TryGetValue(type, out CustomTree tree) || tree?.PaintingSettings is null) return;
+            if (!TreeLoader.PreDrawFoliage(tile.TileType, position, size, (TreeFoliageType)type, treeFrame, origin, color, rotation))
+                return false;
+
+            if (!CustomTree.ByTileType.TryGetValue(tile.TileType, out CustomTree tree) || tree?.PaintingSettings is null)
+                return true;
 
             Main.spriteBatch.End();
             Main.spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, Main.DefaultSamplerState, DepthStencilState.None, Main.Rasterizer, null, Main.Transform);
 
-            tree.PaintingSettings.ApplyShader(tileColor, Main.tileShader);
+            tree.PaintingSettings.ApplyShader(tile.TileColor, Main.tileShader);
+            return true;
         }
-        private static void AfterDrawTexture(ushort type, bool branch, byte tileColor)
+
+        private static void AfterDrawTreeFoliage(Tile tile, Vector2 position, Point size, int type, int treeFrame, Vector2 origin, Color color, float rotation)
         {
-            if (!CustomTree.ByTileType.ContainsKey(type)) return;
+            TreeLoader.PostDrawFoliage(tile.TileType, position, size, (TreeFoliageType)type, treeFrame, origin, color, rotation);
+
+            if (!CustomTree.ByTileType.ContainsKey(tile.TileType)) return;
 
             Main.spriteBatch.End();
             Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState, DepthStencilState.None, Main.Rasterizer, null, Main.Transform);

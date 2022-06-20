@@ -15,7 +15,9 @@ namespace CustomTreeLib
         {
             Shake,
             ModifyTreeSettings,
-            CanGrowMore
+            CanGrowMore,
+            PreDrawFoliage,
+            PostDrawFoliage
         }
 
         static Dictionary<HookID, List<GlobalTree>> Hooks;
@@ -132,6 +134,25 @@ namespace CustomTreeLib
 
             float mod = (settings.MaxHeight / 17f);
             return stats.LeafyBranches < 3 * mod && stats.TotalBranches < 5 * mod && stats.TotalBlocks < 20 * mod;
+        }
+        public static bool PreDrawFoliage(int type, Vector2 position, Point size, TreeFoliageType foliageType, int treeFrame, Vector2 origin, Color color, float rotation)
+        {
+            foreach (GlobalTree global in Hooks[HookID.PreDrawFoliage])
+                if (!global.PreDrawFoliage(type, position, size, foliageType, treeFrame, origin, color, rotation))
+                    return false;
+
+            if (CustomTree.ByTileType.TryGetValue(type, out CustomTree tree))
+                return tree.PreDrawFoliage(position, size, foliageType, treeFrame, origin, color, rotation);
+
+            return true;
+        }
+        public static void PostDrawFoliage(int type, Vector2 position, Point size, TreeFoliageType foliageType, int treeFrame, Vector2 origin, Color color, float rotation)
+        {
+            foreach (GlobalTree global in Hooks[HookID.PostDrawFoliage])
+                global.PostDrawFoliage(type, position, size, foliageType, treeFrame, origin, color, rotation);
+
+            if (CustomTree.ByTileType.TryGetValue(type, out CustomTree tree))
+                tree.PostDrawFoliage(position, size, foliageType, treeFrame, origin, color, rotation);
         }
     }
 }
