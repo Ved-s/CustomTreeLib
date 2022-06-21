@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework;
+﻿using CustomTreeLib.DataStructures;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
 using System;
@@ -163,15 +164,27 @@ namespace CustomTreeLib
 
             if (LeafTexture is not null)
                 Leaf = new();
-            
-            mod.AddContent(Sapling);
-            BySaplingType[Sapling.Type] = this;
 
-            mod.AddContent(Acorn);
-            ByAcornType[Acorn.Type] = this;
+            if (Sapling is not null)
+            {
+                if (!Sapling.Loaded) 
+                    mod.AddContent(Sapling);
+                BySaplingType[Sapling.Type] = this;
+            }
 
-            mod.AddContent(Tile);
-            ByTileType[Tile.Type] = this;
+            if (Acorn is not null)
+            {
+                if (!Acorn.Loaded)
+                    mod.AddContent(Acorn);
+                ByAcornType[Acorn.Type] = this;
+            }
+
+            if (Tile is not null)
+            {
+                if (!Tile.Loaded)
+                    mod.AddContent(Tile);
+                ByTileType[Tile.Type] = this;
+            }
 
             if (Leaf is not null)
             {
@@ -243,6 +256,18 @@ namespace CustomTreeLib
         /// Return true if wall type is valid for tree
         /// </summary>
         public virtual bool ValidWallType(int tile) => ValidWalls.Contains(tile);
+
+        /// <summary>
+        /// Called in world generaion process or by <b>ctl gen</b> command<br/>
+        /// Return true if tree was generated
+        /// </summary>
+        /// <param name="x">Ground tile X position</param>
+        /// <param name="y">Ground tile Y position</param>
+        /// <returns></returns>
+        public virtual bool TryGenerate(int x, int y)
+        {
+            return false;
+        }
 
         /// <summary>
         /// Override fur custom growing from sapling
@@ -417,6 +442,18 @@ namespace CustomTreeLib
         public CustomTree Tree => CustomTree.BySaplingType.TryGetValue(Type, out var tree) ? tree 
             : CustomTree.LoadedTrees.FirstOrDefault(t => t.Sapling.Type == Type);
 
+        public bool Loaded { get; private set; }
+
+        public override void Load()
+        {
+            Loaded = true;
+        }
+
+        public override void Unload()
+        {
+            Loaded = false;
+        }
+
         public override void SetStaticDefaults()
         {
             TileID.Sets.CommonSapling[Type] = true;
@@ -433,7 +470,8 @@ namespace CustomTreeLib
             TileObjectData.newTile.CoordinateHeights = new int[] { 16, 18 };
             TileObjectData.newTile.CoordinateWidth = 16;
             TileObjectData.newTile.CoordinatePadding = 2;
-            TileObjectData.newTile.AnchorValidTiles = Tree.ValidGroundTiles;
+            TileObjectData.newTile.UsesCustomCanPlace = true;
+            TileObjectData.newTile.HookCheckIfCanPlace = new((x,y,type,style,dir,alt) => HookCanPlace(x,y,style,dir,alt) ? 1 : 0, 0, 0, true);
             TileObjectData.newTile.StyleHorizontal = true;
             TileObjectData.newTile.DrawFlipHorizontal = true;
             TileObjectData.newTile.WaterPlacement = LiquidPlacement.NotAllowed;
@@ -470,6 +508,20 @@ namespace CustomTreeLib
             if (Main.rand.NextBool(Tree.GrowChance))
                 Tree.Grow(i, j);
         }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <param name="style"></param>
+        /// <param name="dir"></param>
+        /// <param name="alternate"></param>
+        /// <returns></returns>
+        public virtual bool HookCanPlace(int x, int y, int style, int dir, int alternate)
+        {
+            return Tree.ValidWallType(Framing.GetTileSafely(x, y).WallType) && Tree.ValidGroundType(Framing.GetTileSafely(x, y + 1).TileType);
+        }
     }
 
     [Autoload(false)]
@@ -485,6 +537,18 @@ namespace CustomTreeLib
 
         public ushort PlaceTileType => Tree.Sapling.Type;
         public virtual int PlaceTileStyle => 0;
+
+        public bool Loaded { get; private set; }
+
+        public override void Load()
+        {
+            Loaded = true;
+        }
+
+        public override void Unload()
+        {
+            Loaded = false;
+        }
 
         public override void SetStaticDefaults()
         {
@@ -509,6 +573,18 @@ namespace CustomTreeLib
 
         public CustomTree Tree => CustomTree.ByTileType.TryGetValue(Type, out var tree) ? tree
             : CustomTree.LoadedTrees.FirstOrDefault(t => t.Tile.Type == Type);
+
+        public bool Loaded { get; private set; }
+
+        public override void Load()
+        {
+            Loaded = true;
+        }
+
+        public override void Unload()
+        {
+            Loaded = false;
+        }
 
         public override void SetStaticDefaults()
         {
@@ -577,6 +653,18 @@ namespace CustomTreeLib
 
         public CustomTree Tree => CustomTree.ByCustomLeafType.TryGetValue(Type, out var tree) ? tree
             : CustomTree.LoadedTrees.FirstOrDefault(t => t.Leaf?.Type == Type);
+
+        public bool Loaded { get; private set; }
+
+        public override void Load()
+        {
+            Loaded = true;
+        }
+
+        public override void Unload()
+        {
+            Loaded = false;
+        }
 
         public override void SetStaticDefaults()
         {

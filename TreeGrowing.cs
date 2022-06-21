@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework;
+﻿using CustomTreeLib.DataStructures;
+using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,376 +10,382 @@ using Terraria.ID;
 
 namespace CustomTreeLib
 {
-	/// <summary>
-	/// Tree generation methods
-	/// </summary>
+    /// <summary>
+    /// Tree generation methods
+    /// </summary>
     public static class TreeGrowing
     {
-		static bool prevLeftBranch = false;
-		static bool prevRightBranch = false;
+        static bool prevLeftBranch = false;
+        static bool prevRightBranch = false;
 
-		/// <summary>
-		/// Tries to grow a tree at the given coordinates with the given settings, returns true on success
-		/// </summary>
+        /// <summary>
+        /// Tries to grow a tree at the given coordinates with the given settings, returns true on success
+        /// </summary>
         public static bool GrowTree(int x, int y, TreeSettings settings)
         {
-			prevLeftBranch = false;
-			prevRightBranch = false;
+            prevLeftBranch = false;
+            prevRightBranch = false;
 
-			int groundY = y;
-			while (TileID.Sets.TreeSapling[Main.tile[x, groundY].TileType] || TileID.Sets.CommonSapling[Main.tile[x, groundY].TileType])
-			{
-				groundY++;
-			}
-			if (Main.tile[x - 1, groundY - 1].LiquidAmount != 0 || Main.tile[x, groundY - 1].LiquidAmount != 0 || Main.tile[x + 1, groundY - 1].LiquidAmount != 0)
-			{
-				return false;
-			}
-			Tile ground = Main.tile[x, groundY];
-			if (!ground.HasUnactuatedTile || ground.IsHalfBlock || ground.Slope != SlopeType.Solid)
-			{
-				return false;
-			}
-			if (!settings.GroundTypeCheck(ground.TileType) || !settings.WallTypeCheck(Main.tile[x, groundY - 1].WallType))
-			{
-				return false;
-			}
+            int groundY = y;
+            while (TileID.Sets.TreeSapling[Main.tile[x, groundY].TileType] || TileID.Sets.CommonSapling[Main.tile[x, groundY].TileType])
+            {
+                groundY++;
+            }
+            if (Main.tile[x - 1, groundY - 1].LiquidAmount != 0 || Main.tile[x, groundY - 1].LiquidAmount != 0 || Main.tile[x + 1, groundY - 1].LiquidAmount != 0)
+            {
+                return false;
+            }
+            Tile ground = Main.tile[x, groundY];
+            if (!ground.HasUnactuatedTile || ground.IsHalfBlock || ground.Slope != SlopeType.Solid)
+            {
+                return false;
+            }
+            if (!settings.GroundTypeCheck(ground.TileType) || !settings.WallTypeCheck(Main.tile[x, groundY - 1].WallType))
+            {
+                return false;
+            }
 
             Tile groundLeft = Main.tile[x - 1, groundY];
             Tile groundRight = Main.tile[x + 1, groundY];
             if (
-				   (!groundLeft.HasTile  || !settings.GroundTypeCheck(groundLeft.TileType)) 
-				&& (!groundRight.HasTile || !settings.GroundTypeCheck(groundRight.TileType)))
-			{
-				return false;
-			}
-			byte color = Main.tile[x, groundY].TileColor;
-			int treeHeight = WorldGen.genRand.Next(settings.MinHeight, settings.MaxHeight);
-			int treeHeightWithTop = treeHeight + settings.TopPaddingNeeded;
-			if (!WorldGen.EmptyTileCheck(x - 2, x + 2, groundY - treeHeightWithTop, groundY - 1, 20))
-			{
-				return false;
-			}
+                   (!groundLeft.HasTile || !settings.GroundTypeCheck(groundLeft.TileType))
+                && (!groundRight.HasTile || !settings.GroundTypeCheck(groundRight.TileType)))
+            {
+                return false;
+            }
+            byte color = Main.tile[x, groundY].TileColor;
+            int maxTreeHeight = settings.MinHeight;
+            while (maxTreeHeight < settings.MaxHeight)
+            {
+                if (!WorldGen.EmptyTileCheck(x - 2, x + 2, groundY - maxTreeHeight - settings.TopPaddingNeeded, groundY - 1, 20))
+                {
+                    if (maxTreeHeight == settings.MinHeight)
+                        return false;
+                    break;
+                }
+                maxTreeHeight++;
+            }
 
-			int treeBottom = groundY - 1;
-			int treeTop = treeBottom - treeHeight;
+            int treeHeight = Math.Min(WorldGen.genRand.Next(settings.MinHeight, maxTreeHeight + 1), settings.MaxHeight);
+            int treeBottom = groundY - 1;
+            int treeTop = treeBottom - treeHeight;
 
-			for (int i = treeBottom; i >= treeTop; i--)
-			{
-				if (i == treeBottom) PlaceBottom(x, i, color, settings, treeHeight == 1);
-				else if (i > treeTop) PlaceMiddle(x, i, color, settings);
-				else PlaceTop(x, i, color, settings);
-			}
+            for (int i = treeBottom; i >= treeTop; i--)
+            {
+                if (i == treeBottom) PlaceBottom(x, i, color, settings, treeHeight == 1);
+                else if (i > treeTop) PlaceMiddle(x, i, color, settings);
+                else PlaceTop(x, i, color, settings);
+            }
 
-			WorldGen.RangeFrame(x - 2, treeTop - 1, x + 2, treeBottom + 1);
-			if (Main.netMode == NetmodeID.Server)
-			{
-				NetMessage.SendTileSquare(-1, x - 1, treeTop, 3, treeHeight, TileChangeType.None);
-			}
+            WorldGen.RangeFrame(x - 2, treeTop - 1, x + 2, treeBottom + 1);
+            if (Main.netMode == NetmodeID.Server)
+            {
+                NetMessage.SendTileSquare(-1, x - 1, treeTop, 3, treeHeight, TileChangeType.None);
+            }
 
-			return true;
-		}
-
-		/// <summary>
-		/// Generates tree botoom part at the given coordinates
-		/// </summary>
-		/// <param name="x">X coordinate</param>
-		/// <param name="y">Y coordinate</param>
-		/// <param name="color">Tile color</param>
-		/// <param name="settings">Tree settings</param>
-		/// <param name="top">True only if thee height is 1, places <see cref="TreeTileType.TopWithRoots"/> instead of <see cref="TreeTileType.WithRoots"/></param>
-		public static void PlaceBottom(int x, int y, byte color, TreeSettings settings, bool top) 
-		{
-			Tile groundRight = Framing.GetTileSafely(x + 1, y + 1);
-			Tile groundLeft = Framing.GetTileSafely(x - 1, y + 1);
-
-			bool rootRight = !WorldGen.genRand.NextBool(settings.NoRootChance)
-				&& groundRight.HasUnactuatedTile 
-				&& !groundRight.IsHalfBlock
-				&& groundRight.Slope == SlopeType.Solid;
-
-			bool rootLeft = !WorldGen.genRand.NextBool(settings.NoRootChance)
-				&& groundLeft.HasUnactuatedTile
-				&& !groundLeft.IsHalfBlock
-				&& groundLeft.Slope == SlopeType.Solid;
-
-			int style = WorldGen.genRand.Next(3);
-
-			if (rootRight) Place(x + 1, y, new(style, TreeTileSide.Right, TreeTileType.Root), color, settings);
-			if (rootLeft) Place(x - 1, y, new(style, TreeTileSide.Left, TreeTileType.Root), color, settings);
-
-			if (rootLeft || rootRight)
-				Place(x, y, new(style, GetSide(rootLeft, rootRight), top ? TreeTileType.TopWithRoots : TreeTileType.WithRoots), color, settings);
-			else PlaceNormal(x, y, color, settings);
-		}
-
-		/// <summary>
-		/// Places middle tree part
-		/// </summary>
-		public static void PlaceMiddle(int x, int y, byte color, TreeSettings settings)
-		{
-			bool branchRight = WorldGen.genRand.NextBool(settings.BranchChance);
-			bool branchLeft = WorldGen.genRand.NextBool(settings.BranchChance);
-
-			int style = WorldGen.genRand.Next(3);
-
-			if (prevLeftBranch && branchLeft) branchLeft = false;
-			if (prevRightBranch && branchRight) branchRight = false;
-
-			prevLeftBranch = branchLeft;
-			prevRightBranch = branchRight;
-
-			if (branchRight)
-				Place(x + 1, y, 
-					new(style, TreeTileSide.Right, 
-					WorldGen.genRand.NextBool(settings.NotLeafyBranchChance) ? TreeTileType.Branch : TreeTileType.LeafyBranch),
-					color, settings);
-			if (branchLeft)
-				Place(x - 1, y,
-					new(style, TreeTileSide.Left,
-					WorldGen.genRand.NextBool(settings.NotLeafyBranchChance) ? TreeTileType.Branch : TreeTileType.LeafyBranch),
-					color, settings);
-
-			if (branchRight || branchLeft)
-				Place(x, y, new(style, GetSide(branchLeft, branchRight), TreeTileType.WithBranches), color, settings);
-			else PlaceNormal(x, y, color, settings);
-		}
-
-		/// <summary>
-		/// Places tree top
-		/// </summary>
-		public static void PlaceTop(int x, int y, byte color, TreeSettings settings)
-		{
-			if (WorldGen.genRand.NextBool(settings.BrokenTopChance))
-				Place(x, y, new(TreeTileType.BrokenTop), color, settings);
-			else Place(x, y, new(TreeTileType.LeafyTop), color, settings);
-		}
-
-		/// <summary>
-		/// Places straight tree tile
-		/// </summary>
-		public static void PlaceNormal(int x, int y, byte color, TreeSettings settings) 
-		{
-			int bark = 0;
-
-			if (WorldGen.genRand.NextBool(settings.LessBarkChance)) bark--;
-			if (WorldGen.genRand.NextBool(settings.MoreBarkChance)) bark++;
-
-			TreeTileSide side = WorldGen.genRand.NextBool() ? TreeTileSide.Left : TreeTileSide.Right;
-
-			if (bark == 0) Place(x, y, new(TreeTileType.Normal), color, settings);
-			else if (bark < 0) Place(x, y, new(side, TreeTileType.LessBark), color, settings);
-			else Place(x, y, new(side, TreeTileType.MoreBark), color, settings);
-		}
-
-		/// <summary>
-		/// Places tree tile
-		/// </summary>
-		/// <param name="x"></param>
-		/// <param name="y"></param>
-		/// <param name="info"></param>
-		/// <param name="color">Tile color</param>
-		/// <param name="settings"></param>
-		/// <param name="triggerTileframe">True for triggering TileFrame afterwards</param>
-		public static void Place(int x, int y, TreeTileInfo info, byte color, TreeSettings settings, bool triggerTileframe = false) 
-		{
-			Tile t = Main.tile[x, y];
-
-			t.HasTile = true;
-			t.TileType = settings.TreeTileType;
-			info.ApplyToTile(t);
-			t.TileColor = color;
-
-			if (triggerTileframe)
-			{
-				WorldGen.TileFrame(x - 1, y, false, false);
-				WorldGen.TileFrame(x + 1, y, false, false);
-				WorldGen.TileFrame(x, y - 1, false, false);
-				WorldGen.TileFrame(x, y + 1, false, false);
-			}
-		}
-
-		/// <summary>
-		/// Construct <see cref="TreeTileSide"/> from left and right
-		/// </summary>
-		public static TreeTileSide GetSide(bool left, bool right)
-		{
-			if (left && right || !left && !right) return TreeTileSide.Center;
-			if (left) return TreeTileSide.Left;
-			return TreeTileSide.Right;
-		}
-
-		/// <summary>
-		/// Deconstruct <see cref="TreeTileSide"/>
-		/// </summary>
-		public static void SetSide(TreeTileSide side, out bool left, out bool right)
-		{
-			left = right = false;
-
-			if (side == TreeTileSide.Center) left = right = true;
-			else if (side == TreeTileSide.Left) left = true;
-			else right = true;
-		}
-
-		/// <summary>
-		/// Gets tree statistics at the given coordinates
-		/// </summary>
-		public static TreeStats GetTreeStats(int x, int y) 
-		{
-			TreeStats stats = new();
-
-			stats.Top = new(x, y);
-			stats.Bottom = new(x, y);
-
-			foreach (PositionedTreeTile tile in EnumerateTreeTiles(x, y)) 
-			{
-				stats.TotalBlocks++;
-
-				switch (tile.Info.Type)
-				{
-					case TreeTileType.Branch:
-						stats.TotalBranches++;
-						break;
-
-					case TreeTileType.LeafyBranch:
-						stats.TotalBranches++;
-						stats.LeafyBranches++;
-						break;
-
-					case TreeTileType.Root:
-						if (tile.Info.Side == TreeTileSide.Left) stats.LeftRoot = true;
-						else stats.RightRoot = true;
-						break;
-
-					case TreeTileType.BrokenTop:
-						stats.HasTop = true;
-						stats.BrokenTop = true;
-						break;
-
-					case TreeTileType.LeafyTop:
-						stats.HasTop = true;
-						break;
-				}
-				if (tile.Info.IsCenter) 
-				{
-					stats.Bottom.X = tile.Pos.X;
-					stats.Top.X = tile.Pos.X;
-
-					stats.Top.Y = Math.Min(tile.Pos.Y, stats.Top.Y);
-					stats.Bottom.Y = Math.Max(tile.Pos.Y, stats.Bottom.Y);
-				}
-			}
-			stats.GroundType = Framing.GetTileSafely(stats.Bottom.X, stats.Bottom.Y + 1).TileType;
-			return stats;
+            return true;
         }
 
-		/// <summary>
-		/// Find and enumerate throug all tiles of this tree
-		/// </summary>
-		public static IEnumerable<PositionedTreeTile> EnumerateTreeTiles(int x, int y) 
-		{
-			HashSet<Point> done = new();
-			Queue<Point> queue = new();
+        /// <summary>
+        /// Generates tree botoom part at the given coordinates
+        /// </summary>
+        /// <param name="x">X coordinate</param>
+        /// <param name="y">Y coordinate</param>
+        /// <param name="color">Tile color</param>
+        /// <param name="settings">Tree settings</param>
+        /// <param name="top">True only if thee height is 1, places <see cref="TreeTileType.TopWithRoots"/> instead of <see cref="TreeTileType.WithRoots"/></param>
+        public static void PlaceBottom(int x, int y, byte color, TreeSettings settings, bool top)
+        {
+            Tile groundRight = Framing.GetTileSafely(x + 1, y + 1);
+            Tile groundLeft = Framing.GetTileSafely(x - 1, y + 1);
 
-			queue.Enqueue(new Point(x, y));
+            bool rootRight = !WorldGen.genRand.NextBool(settings.NoRootChance)
+                && groundRight.HasUnactuatedTile
+                && !groundRight.IsHalfBlock
+                && groundRight.Slope == SlopeType.Solid;
 
-			while (queue.Count > 0)
-			{
-				Point p = queue.Dequeue();
-				if (done.Contains(p))
-					continue;
+            bool rootLeft = !WorldGen.genRand.NextBool(settings.NoRootChance)
+                && groundLeft.HasUnactuatedTile
+                && !groundLeft.IsHalfBlock
+                && groundLeft.Slope == SlopeType.Solid;
 
-				done.Add(p);
+            int style = WorldGen.genRand.Next(3);
 
-				Tile t = Main.tile[p.X, p.Y];
-				if (!t.HasTile || !TileID.Sets.IsATreeTrunk[t.TileType]) continue;
+            if (rootRight) Place(x + 1, y, new(style, TreeTileSide.Right, TreeTileType.Root), color, settings);
+            if (rootLeft) Place(x - 1, y, new(style, TreeTileSide.Left, TreeTileType.Root), color, settings);
 
-				TreeTileInfo info = TreeTileInfo.GetInfo(t);
+            if (rootLeft || rootRight)
+                Place(x, y, new(style, GetSide(rootLeft, rootRight), top ? TreeTileType.TopWithRoots : TreeTileType.WithRoots), color, settings);
+            else PlaceNormal(x, y, color, settings);
+        }
 
-				yield return new(p, info);
+        /// <summary>
+        /// Places middle tree part
+        /// </summary>
+        public static void PlaceMiddle(int x, int y, byte color, TreeSettings settings)
+        {
+            bool branchRight = WorldGen.genRand.NextBool(settings.BranchChance);
+            bool branchLeft = WorldGen.genRand.NextBool(settings.BranchChance);
 
-				bool left = false;
-				bool right = false;
-				bool up = true;
-				bool down = true;
+            int style = WorldGen.genRand.Next(3);
 
-				switch (info.Type)
-				{
-					case TreeTileType.WithBranches:
-						SetSide(info.Side, out left, out right);
-						break;
+            if (prevLeftBranch && branchLeft) branchLeft = false;
+            if (prevRightBranch && branchRight) branchRight = false;
 
-					case TreeTileType.Branch:
-						up = down = false;
-						SetSide(info.Side, out right, out left);
-						break;
+            prevLeftBranch = branchLeft;
+            prevRightBranch = branchRight;
 
-					case TreeTileType.LeafyBranch:
-						up = down = false;
-						SetSide(info.Side, out right, out left);
-						break;
+            if (branchRight)
+                Place(x + 1, y,
+                    new(style, TreeTileSide.Right,
+                    WorldGen.genRand.NextBool(settings.NotLeafyBranchChance) ? TreeTileType.Branch : TreeTileType.LeafyBranch),
+                    color, settings);
+            if (branchLeft)
+                Place(x - 1, y,
+                    new(style, TreeTileSide.Left,
+                    WorldGen.genRand.NextBool(settings.NotLeafyBranchChance) ? TreeTileType.Branch : TreeTileType.LeafyBranch),
+                    color, settings);
 
-					case TreeTileType.WithRoots:
-						down = false;
-						SetSide(info.Side, out left, out right);
-						break;
+            if (branchRight || branchLeft)
+                Place(x, y, new(style, GetSide(branchLeft, branchRight), TreeTileType.WithBranches), color, settings);
+            else PlaceNormal(x, y, color, settings);
+        }
 
-					case TreeTileType.Root:
-						up = down = false;
-						SetSide(info.Side, out right, out left);
-						break;
+        /// <summary>
+        /// Places tree top
+        /// </summary>
+        public static void PlaceTop(int x, int y, byte color, TreeSettings settings)
+        {
+            if (WorldGen.genRand.NextBool(settings.BrokenTopChance))
+                Place(x, y, new(TreeTileType.BrokenTop), color, settings);
+            else Place(x, y, new(TreeTileType.LeafyTop), color, settings);
+        }
 
-					case TreeTileType.BrokenTop:
-						up = false;
-						break;
+        /// <summary>
+        /// Places straight tree tile
+        /// </summary>
+        public static void PlaceNormal(int x, int y, byte color, TreeSettings settings)
+        {
+            int bark = 0;
 
-					case TreeTileType.LeafyTop:
-						up = false;
-						break;
-				}
+            if (WorldGen.genRand.NextBool(settings.LessBarkChance)) bark--;
+            if (WorldGen.genRand.NextBool(settings.MoreBarkChance)) bark++;
 
-				if (up) queue.Enqueue(new(p.X, p.Y - 1));
-				if (down) queue.Enqueue(new(p.X, p.Y + 1));
-				if (left) queue.Enqueue(new(p.X - 1, p.Y));
-				if (right) queue.Enqueue(new(p.X + 1, p.Y));
-			}
-		}
+            TreeTileSide side = WorldGen.genRand.NextBool() ? TreeTileSide.Left : TreeTileSide.Right;
 
-		/// <summary>
-		/// Tries to grow tree higher at the given position
-		/// </summary>
-		public static bool TryGrowHigher(int topX, int topY, TreeSettings settings)
-		{
-			if (!WorldGen.EmptyTileCheck(topX - 2, topX + 2, topY - 1 - settings.TopPaddingNeeded, topY - 1, 20))
-			{
-				return false;
-			}
+            if (bark == 0) Place(x, y, new(TreeTileType.Normal), color, settings);
+            else if (bark < 0) Place(x, y, new(side, TreeTileType.LessBark), color, settings);
+            else Place(x, y, new(side, TreeTileType.MoreBark), color, settings);
+        }
 
-			Tile t = Main.tile[topX, topY];
+        /// <summary>
+        /// Places tree tile
+        /// </summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <param name="info"></param>
+        /// <param name="color">Tile color</param>
+        /// <param name="settings"></param>
+        /// <param name="triggerTileframe">True for triggering TileFrame afterwards</param>
+        public static void Place(int x, int y, TreeTileInfo info, byte color, TreeSettings settings, bool triggerTileframe = false)
+        {
+            Tile t = Main.tile[x, y];
 
-			TreeTileInfo below = TreeTileInfo.GetInfo(topX, topY+1);
+            t.HasTile = true;
+            t.TileType = settings.TreeTileType;
+            info.ApplyToTile(t);
+            t.TileColor = color;
 
-			if (below.Type == TreeTileType.WithBranches)
-				SetSide(below.Side, out prevLeftBranch, out prevRightBranch);
+            if (triggerTileframe)
+            {
+                WorldGen.TileFrame(x - 1, y, false, false);
+                WorldGen.TileFrame(x + 1, y, false, false);
+                WorldGen.TileFrame(x, y - 1, false, false);
+                WorldGen.TileFrame(x, y + 1, false, false);
+            }
+        }
 
-			TreeTileInfo info = TreeTileInfo.GetInfo(t);
+        /// <summary>
+        /// Construct <see cref="TreeTileSide"/> from left and right
+        /// </summary>
+        public static TreeTileSide GetSide(bool left, bool right)
+        {
+            if (left && right || !left && !right) return TreeTileSide.Center;
+            if (left) return TreeTileSide.Left;
+            return TreeTileSide.Right;
+        }
 
-			PlaceMiddle(topX, topY, t.TileColor, settings);
-			Place(topX, topY-1, info, t.TileColor, settings);
+        /// <summary>
+        /// Deconstruct <see cref="TreeTileSide"/>
+        /// </summary>
+        public static void SetSide(TreeTileSide side, out bool left, out bool right)
+        {
+            left = right = false;
 
-			if (Main.netMode != NetmodeID.Server)
-			{
-				Patches.Instance.TileDrawing_AddSpecialPoint(Main.instance.TilesRenderer, topX, topY - 1, 0);
-			}
+            if (side == TreeTileSide.Center) left = right = true;
+            else if (side == TreeTileSide.Left) left = true;
+            else right = true;
+        }
 
-			WorldGen.SectionTileFrame(topX - 2, topY - 2, topX + 2, topY + 1);
-			if (Main.netMode == NetmodeID.Server)
-			{
-				NetMessage.SendTileSquare(-1, topX - 1, topY - 1, 3, 2, TileChangeType.None);
-			}
+        /// <summary>
+        /// Gets tree statistics at the given coordinates
+        /// </summary>
+        public static TreeStats GetTreeStats(int x, int y)
+        {
+            TreeStats stats = new();
 
-			return true;
-		}
+            stats.Top = new(x, y);
+            stats.Bottom = new(x, y);
+
+            foreach (PositionedTreeTile tile in EnumerateTreeTiles(x, y))
+            {
+                stats.TotalBlocks++;
+
+                switch (tile.Info.Type)
+                {
+                    case TreeTileType.Branch:
+                        stats.TotalBranches++;
+                        break;
+
+                    case TreeTileType.LeafyBranch:
+                        stats.TotalBranches++;
+                        stats.LeafyBranches++;
+                        break;
+
+                    case TreeTileType.Root:
+                        if (tile.Info.Side == TreeTileSide.Left) stats.LeftRoot = true;
+                        else stats.RightRoot = true;
+                        break;
+
+                    case TreeTileType.BrokenTop:
+                        stats.HasTop = true;
+                        stats.BrokenTop = true;
+                        break;
+
+                    case TreeTileType.LeafyTop:
+                        stats.HasTop = true;
+                        break;
+                }
+                if (tile.Info.IsCenter)
+                {
+                    stats.Bottom.X = tile.Pos.X;
+                    stats.Top.X = tile.Pos.X;
+
+                    stats.Top.Y = Math.Min(tile.Pos.Y, stats.Top.Y);
+                    stats.Bottom.Y = Math.Max(tile.Pos.Y, stats.Bottom.Y);
+                }
+            }
+            stats.GroundType = Framing.GetTileSafely(stats.Bottom.X, stats.Bottom.Y + 1).TileType;
+            return stats;
+        }
+
+        /// <summary>
+        /// Find and enumerate throug all tiles of this tree
+        /// </summary>
+        public static IEnumerable<PositionedTreeTile> EnumerateTreeTiles(int x, int y)
+        {
+            HashSet<Point> done = new();
+            Queue<Point> queue = new();
+
+            queue.Enqueue(new Point(x, y));
+
+            while (queue.Count > 0)
+            {
+                Point p = queue.Dequeue();
+                if (done.Contains(p))
+                    continue;
+
+                done.Add(p);
+
+                Tile t = Main.tile[p.X, p.Y];
+                if (!t.HasTile || !TileID.Sets.IsATreeTrunk[t.TileType]) continue;
+
+                TreeTileInfo info = TreeTileInfo.GetInfo(t);
+
+                yield return new(p, info);
+
+                bool left = false;
+                bool right = false;
+                bool up = true;
+                bool down = true;
+
+                switch (info.Type)
+                {
+                    case TreeTileType.WithBranches:
+                        SetSide(info.Side, out left, out right);
+                        break;
+
+                    case TreeTileType.Branch:
+                        up = down = false;
+                        SetSide(info.Side, out right, out left);
+                        break;
+
+                    case TreeTileType.LeafyBranch:
+                        up = down = false;
+                        SetSide(info.Side, out right, out left);
+                        break;
+
+                    case TreeTileType.WithRoots:
+                        down = false;
+                        SetSide(info.Side, out left, out right);
+                        break;
+
+                    case TreeTileType.Root:
+                        up = down = false;
+                        SetSide(info.Side, out right, out left);
+                        break;
+
+                    case TreeTileType.BrokenTop:
+                        up = false;
+                        break;
+
+                    case TreeTileType.LeafyTop:
+                        up = false;
+                        break;
+                }
+
+                if (up) queue.Enqueue(new(p.X, p.Y - 1));
+                if (down) queue.Enqueue(new(p.X, p.Y + 1));
+                if (left) queue.Enqueue(new(p.X - 1, p.Y));
+                if (right) queue.Enqueue(new(p.X + 1, p.Y));
+            }
+        }
+
+        /// <summary>
+        /// Tries to grow tree higher at the given position
+        /// </summary>
+        public static bool TryGrowHigher(int topX, int topY, TreeSettings settings)
+        {
+            if (!WorldGen.EmptyTileCheck(topX - 2, topX + 2, topY - 1 - settings.TopPaddingNeeded, topY - 1, 20))
+            {
+                return false;
+            }
+
+            Tile t = Main.tile[topX, topY];
+
+            TreeTileInfo below = TreeTileInfo.GetInfo(topX, topY + 1);
+
+            if (below.Type == TreeTileType.WithBranches)
+                SetSide(below.Side, out prevLeftBranch, out prevRightBranch);
+
+            TreeTileInfo info = TreeTileInfo.GetInfo(t);
+
+            PlaceMiddle(topX, topY, t.TileColor, settings);
+            Place(topX, topY - 1, info, t.TileColor, settings);
+
+            if (Main.netMode != NetmodeID.Server)
+            {
+                Patches.Instance.TileDrawing_AddSpecialPoint(Main.instance.TilesRenderer, topX, topY - 1, 0);
+            }
+
+            WorldGen.SectionTileFrame(topX - 2, topY - 2, topX + 2, topY + 1);
+            if (Main.netMode == NetmodeID.Server)
+            {
+                NetMessage.SendTileSquare(-1, topX - 1, topY - 1, 3, 2, TileChangeType.None);
+            }
+
+            return true;
+        }
 
         /// <summary>
         /// CustomTree variant of <see cref="WorldGen.CheckTree"/>
@@ -389,212 +396,139 @@ namespace CustomTreeLib
         /// <param name="breakTiles">True to validate and break tree tiles, for example if nothing is below vertical tile</param>
         /// <param name="fixFrames">True to fix tile frames, for example change <see cref="TreeTileType.WithBranches"/> to <see cref="TreeTileType.Normal"/> when all branches are cut off from tile</param>
         public static void CheckTree(int x, int y, TreeSettings settings, bool breakTiles = true, bool fixFrames = true)
-		{
-			Tile t = Framing.GetTileSafely(x, y);
-			if (t.TileType != settings.TreeTileType) return;
-
-			TreeTileInfo info = TreeTileInfo.GetInfo(x, y);
-
-			if (breakTiles)
-			{
-				bool groundCheck = info.Type != TreeTileType.Branch && info.Type != TreeTileType.LeafyBranch;
-				if (groundCheck)
-				{
-					Tile ground = Framing.GetTileSafely(x, y + 1);
-					if (ground.TileType != settings.TreeTileType && !settings.GroundTypeCheck(ground.TileType))
-					{
-						WorldGen.KillTile(x, y);
-						return;
-					}
-				}
-
-				if (info.Type == TreeTileType.Branch || info.Type == TreeTileType.LeafyBranch || info.Type == TreeTileType.Root)
-				{
-					int checkX = x;
-					if (info.Side == TreeTileSide.Left) checkX++;
-					else if (info.Side == TreeTileSide.Right) checkX--;
-
-					if (Framing.GetTileSafely(checkX, y).TileType != settings.TreeTileType)
-					{
-						WorldGen.KillTile(x, y);
-						return;
-					}
-				}
-			}
-
-			if (fixFrames) 
-			{
-				bool top = Framing.GetTileSafely(x, y - 1).TileType == settings.TreeTileType;
-				bool left = Framing.GetTileSafely(x - 1, y).TileType == settings.TreeTileType;
-				bool right = Framing.GetTileSafely(x + 1, y).TileType == settings.TreeTileType;
-
-				TreeTileInfo leftInfo = TreeTileInfo.GetInfo(x - 1, y);
-				TreeTileInfo rightInfo = TreeTileInfo.GetInfo(x + 1, y);
-
-				bool leftBranch = left && leftInfo.Type == TreeTileType.Branch || leftInfo.Type == TreeTileType.LeafyBranch;
-				bool rightBranch = right && rightInfo.Type == TreeTileType.Branch || rightInfo.Type == TreeTileType.LeafyBranch;
-
-				bool leftRoot = left && leftInfo.Type == TreeTileType.Root;
-				bool rightRoot = right && rightInfo.Type == TreeTileType.Root;
-
-				//switch (newInfo.Type)
-				//{
-				//	case TreeTileType.WithRoots when top:
-				//		newInfo.Type = TreeTileType.TopWithRoots;
-				//		break;
-				//
-				//	case TreeTileType.WithBranches when top:
-				//		newInfo.Type = TreeTileType.TopWithBranches;
-				//		break;
-				//
-				//	case TreeTileType.TopWithRoots when !top:
-				//		newInfo.Type = TreeTileType.WithRoots;
-				//		break;
-				//
-				//	case TreeTileType.TopWithBranches when !top:
-				//		newInfo.Type = TreeTileType.WithBranches;
-				//		break;
-				//}
-
-				TreeTileInfo newInfo = info;
-
-				if (newInfo.IsTop || newInfo.Type == TreeTileType.Branch || newInfo.Type == TreeTileType.LeafyBranch || newInfo.Type == TreeTileType.Root)
-				{
-				}
-				else if (leftBranch || rightBranch)
-				{
-					newInfo.Type = top ? TreeTileType.WithBranches : TreeTileType.TopWithBranches;
-					newInfo.Side = GetSide(leftBranch, rightBranch);
-				}
-				else if (leftRoot || rightRoot)
-				{
-					newInfo.Type = top ? TreeTileType.WithRoots : TreeTileType.TopWithRoots;
-					newInfo.Side = GetSide(leftRoot, rightRoot);
-				}
-				else if (!top)
-				{
-					newInfo.Type = TreeTileType.Top;
-				}
-				else if (
-					   newInfo.Type != TreeTileType.Normal
-					&& newInfo.Type != TreeTileType.LessBark
-					&& newInfo.Type != TreeTileType.MoreBark)
-				{
-					int bark = 0;
-
-					if (WorldGen.genRand.NextBool(settings.LessBarkChance)) bark--;
-					if (WorldGen.genRand.NextBool(settings.MoreBarkChance)) bark++;
-
-					newInfo.Side = bark == 0 ? TreeTileSide.Center : WorldGen.genRand.NextBool() ? TreeTileSide.Left : TreeTileSide.Right;
-
-					if (bark == 0) newInfo.Type = TreeTileType.Normal;
-					else if (bark < 0) newInfo.Type = TreeTileType.LessBark;
-					else newInfo.Type = TreeTileType.MoreBark;
-				}
-				if (info != newInfo)
-				{
-					newInfo.ApplyToTile(x, y);
-
-					WorldGen.TileFrame(x - 1, y, false, false);
-					WorldGen.TileFrame(x + 1, y, false, false);
-					WorldGen.TileFrame(x, y - 1, false, false);
-					WorldGen.TileFrame(x, y + 1, false, false);
-				}
-			}
-		}
-
-		/// <summary>
-		/// Changes the given coordinates to point to tree bottom
-		/// </summary>
-		public static void GetTreeBottom(ref int x, ref int y)
-		{
-			TreeTileInfo info = TreeTileInfo.GetInfo(x, y);
-
-			if (info.Type == TreeTileType.Root || info.Type == TreeTileType.Branch || info.Type == TreeTileType.LeafyBranch)
-			{
-				if (info.Side == TreeTileSide.Left) x++;
-				else if (info.Side == TreeTileSide.Right) x--;
-			}
-
-			Tile t = Framing.GetTileSafely(x, y);
-			while (y < Main.maxTilesY - 50 && (!t.HasTile || TileID.Sets.IsATreeTrunk[t.TileType] || t.TileType == 72))
-			{
-				y++;
-				t = Framing.GetTileSafely(x, y);
-			}
-		}
-    }
-
-	/// <summary>
-	/// Tree statistics
-	/// </summary>
-    public struct TreeStats 
-	{
-		/// <summary>
-		/// Total tree blocks
-		/// </summary>
-		public int TotalBlocks;
-
-		/// <summary>
-		/// Total tree branches
-		/// </summary>
-		public int TotalBranches;
-
-		/// <summary>
-		/// Total leafy branches
-		/// </summary>
-		public int LeafyBranches;
-
-		/// <summary>
-		/// True if tree top exisis and not broken
-		/// </summary>
-		public bool HasTop;
-
-		/// <summary>
-		/// True if tree top exisis and broken
-		/// </summary>
-		public bool BrokenTop;
-
-		/// <summary>
-		/// True if thee have left root
-		/// </summary>
-		public bool LeftRoot;
-
-		/// <summary>
-		/// True if thee have right root
-		/// </summary>
-		public bool RightRoot;
-
-		/// <summary>
-		/// Tree top position
-		/// </summary>
-		public Point Top = new(0, int.MaxValue);
-
-		/// <summary>
-		/// Tree bottom position
-		/// </summary>
-		public Point Bottom;
-
-		/// <summary>
-		/// Tree ground tile type
-		/// </summary>
-		public ushort GroundType;
-
-		/// <summary/>
-        public override string ToString()
         {
-			return $"T:{TotalBlocks} " +
-				$"B:{TotalBranches} " +
-				$"BL:{LeafyBranches} " +
-				$"{(HasTop?(BrokenTop?"TB ":"TL "):"")}" +
-				$"{(LeftRoot?"Rl ":"")}" +
-				$"{(RightRoot?"Rr ":"")}" +
-				$"X:{Top.X} Y:{Top.Y}-{Bottom.Y} G:{GroundType}";
+            Tile t = Framing.GetTileSafely(x, y);
+            if (t.TileType != settings.TreeTileType) return;
+
+            TreeTileInfo info = TreeTileInfo.GetInfo(x, y);
+
+            if (breakTiles)
+            {
+                bool groundCheck = info.Type != TreeTileType.Branch && info.Type != TreeTileType.LeafyBranch;
+                if (groundCheck)
+                {
+                    Tile ground = Framing.GetTileSafely(x, y + 1);
+                    if (ground.TileType != settings.TreeTileType && !settings.GroundTypeCheck(ground.TileType))
+                    {
+                        WorldGen.KillTile(x, y);
+                        return;
+                    }
+                }
+
+                if (info.Type == TreeTileType.Branch || info.Type == TreeTileType.LeafyBranch || info.Type == TreeTileType.Root)
+                {
+                    int checkX = x;
+                    if (info.Side == TreeTileSide.Left) checkX++;
+                    else if (info.Side == TreeTileSide.Right) checkX--;
+
+                    if (Framing.GetTileSafely(checkX, y).TileType != settings.TreeTileType)
+                    {
+                        WorldGen.KillTile(x, y);
+                        return;
+                    }
+                }
+            }
+
+            if (fixFrames)
+            {
+                bool top = Framing.GetTileSafely(x, y - 1).TileType == settings.TreeTileType;
+                bool left = Framing.GetTileSafely(x - 1, y).TileType == settings.TreeTileType;
+                bool right = Framing.GetTileSafely(x + 1, y).TileType == settings.TreeTileType;
+
+                TreeTileInfo leftInfo = TreeTileInfo.GetInfo(x - 1, y);
+                TreeTileInfo rightInfo = TreeTileInfo.GetInfo(x + 1, y);
+
+                bool leftBranch = left && leftInfo.Type == TreeTileType.Branch || leftInfo.Type == TreeTileType.LeafyBranch;
+                bool rightBranch = right && rightInfo.Type == TreeTileType.Branch || rightInfo.Type == TreeTileType.LeafyBranch;
+
+                bool leftRoot = left && leftInfo.Type == TreeTileType.Root;
+                bool rightRoot = right && rightInfo.Type == TreeTileType.Root;
+
+                //switch (newInfo.Type)
+                //{
+                //	case TreeTileType.WithRoots when top:
+                //		newInfo.Type = TreeTileType.TopWithRoots;
+                //		break;
+                //
+                //	case TreeTileType.WithBranches when top:
+                //		newInfo.Type = TreeTileType.TopWithBranches;
+                //		break;
+                //
+                //	case TreeTileType.TopWithRoots when !top:
+                //		newInfo.Type = TreeTileType.WithRoots;
+                //		break;
+                //
+                //	case TreeTileType.TopWithBranches when !top:
+                //		newInfo.Type = TreeTileType.WithBranches;
+                //		break;
+                //}
+
+                TreeTileInfo newInfo = info;
+
+                if (newInfo.IsTop || newInfo.Type == TreeTileType.Branch || newInfo.Type == TreeTileType.LeafyBranch || newInfo.Type == TreeTileType.Root)
+                {
+                }
+                else if (leftBranch || rightBranch)
+                {
+                    newInfo.Type = top ? TreeTileType.WithBranches : TreeTileType.TopWithBranches;
+                    newInfo.Side = GetSide(leftBranch, rightBranch);
+                }
+                else if (leftRoot || rightRoot)
+                {
+                    newInfo.Type = top ? TreeTileType.WithRoots : TreeTileType.TopWithRoots;
+                    newInfo.Side = GetSide(leftRoot, rightRoot);
+                }
+                else if (!top)
+                {
+                    newInfo.Type = TreeTileType.Top;
+                }
+                else if (
+                       newInfo.Type != TreeTileType.Normal
+                    && newInfo.Type != TreeTileType.LessBark
+                    && newInfo.Type != TreeTileType.MoreBark)
+                {
+                    int bark = 0;
+
+                    if (WorldGen.genRand.NextBool(settings.LessBarkChance)) bark--;
+                    if (WorldGen.genRand.NextBool(settings.MoreBarkChance)) bark++;
+
+                    newInfo.Side = bark == 0 ? TreeTileSide.Center : WorldGen.genRand.NextBool() ? TreeTileSide.Left : TreeTileSide.Right;
+
+                    if (bark == 0) newInfo.Type = TreeTileType.Normal;
+                    else if (bark < 0) newInfo.Type = TreeTileType.LessBark;
+                    else newInfo.Type = TreeTileType.MoreBark;
+                }
+                if (info != newInfo)
+                {
+                    newInfo.ApplyToTile(x, y);
+
+                    WorldGen.TileFrame(x - 1, y, false, false);
+                    WorldGen.TileFrame(x + 1, y, false, false);
+                    WorldGen.TileFrame(x, y - 1, false, false);
+                    WorldGen.TileFrame(x, y + 1, false, false);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Changes the given coordinates to point to tree bottom
+        /// </summary>
+        public static void GetTreeBottom(ref int x, ref int y)
+        {
+            TreeTileInfo info = TreeTileInfo.GetInfo(x, y);
+
+            if (info.Type == TreeTileType.Root || info.Type == TreeTileType.Branch || info.Type == TreeTileType.LeafyBranch)
+            {
+                if (info.Side == TreeTileSide.Left) x++;
+                else if (info.Side == TreeTileSide.Right) x--;
+            }
+
+            Tile t = Framing.GetTileSafely(x, y);
+            while (y < Main.maxTilesY - 50 && (!t.HasTile || TileID.Sets.IsATreeTrunk[t.TileType] || t.TileType == 72))
+            {
+                y++;
+                t = Framing.GetTileSafely(x, y);
+            }
         }
     }
-
-	/// <summary>
-	/// Tree tile with position and its info
-	/// </summary>
-	public record struct PositionedTreeTile(Point Pos, TreeTileInfo Info);
 }

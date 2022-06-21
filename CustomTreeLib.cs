@@ -7,7 +7,10 @@ using Terraria.ModLoader;
 
 namespace CustomTreeLib
 {
+    /// <summary/>
     public class CustomTreeLib : Mod
 	{
+        /// <summary/>
+        public static bool DebugMode => Debugger.IsAttached;
     }
 }

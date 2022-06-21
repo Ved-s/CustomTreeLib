@@ -7,10 +7,11 @@ using Terraria;
 using Terraria.IO;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
+using Terraria.WorldBuilding;
 
 namespace CustomTreeLib
 {
-    public class CustomTreeSystem : ModSystem
+    internal class CustomTreeSystem : ModSystem
     {
         bool NeedsFrameConversion = true;
 
@@ -52,6 +53,12 @@ namespace CustomTreeLib
                     }
                 NeedsFrameConversion = false;
             }
+        }
+
+        public override void ModifyWorldGenTasks(List<GenPass> tasks, ref float totalWeight)
+        {
+            tasks.Add(new TreeGenPass());
+            totalWeight += 300;
         }
     }
 }

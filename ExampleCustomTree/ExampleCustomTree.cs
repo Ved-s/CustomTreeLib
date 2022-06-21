@@ -1,25 +1,29 @@
-﻿using Microsoft.Xna.Framework;
+﻿using CustomTreeLib.DataStructures;
+using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
 
 #pragma warning disable CS1591
 
-namespace CustomTreeLib.ExampleTree
+namespace CustomTreeLib.ExampleCustomTree
 {
-    public class ExampleTree : CustomTree
+    public class ExampleCustomTree : CustomTree
     {
-        public override string SaplingTexture => "CustomTreeLib/ExampleTree/ExampleSapling";
-        public override string AcornTexture => "CustomTreeLib/ExampleTree/ExampleAcorn";
+        public override string SaplingTexture => "CustomTreeLib/ExampleCustomTree/ExampleSapling";
+        public override string AcornTexture => "CustomTreeLib/ExampleCustomTree/ExampleAcorn";
         public override string TileTexture => "Terraria/Images/Tiles_583";
         public override string TopTexture => "Terraria/Images/Tree_Tops_30";
         public override string BranchTexture => "Terraria/Images/Tree_Branches_26";
 
-        public override string LeafTexture => "CustomTreeLib/ExampleTree/ExampleLeaf";
+        public override string LeafTexture => "CustomTreeLib/ExampleCustomTree/ExampleLeaf";
 
-        public override int[] ValidGroundTiles => new int[] { TileID.Grass };
+        public override int[] ValidGroundTiles => new int[] { TileID.Grass, TileID.Dirt, TileID.Stone };
 
         public override int SaplingStyles => 3;
         public override int GrowChance => 1;
+
+        public override int MinHeight => 2;
+        public override int MaxHeight => 20;
 
         public override Color? MapColor => Color.Yellow;
         public override string MapName => "Example Tree";
@@ -44,6 +48,11 @@ namespace CustomTreeLib.ExampleTree
             topTextureFrameHeight = 96;
             floorY = 0;
             return true;
+        }
+
+        public override bool TryGenerate(int x, int y)
+        {
+            return TreeGrowing.GrowTree(x, y, GetTreeSettings());
         }
 
         public override bool CreateDust(int x, int y, ref int dustType)

@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Terraria;
 using Terraria.ID;
 
-namespace CustomTreeLib
+namespace CustomTreeLib.DataStructures
 {
     /// <summary>
     /// CustomTrees growing settings
@@ -75,7 +75,7 @@ namespace CustomTreeLib
         public int BrokenTopChance;
 
         /// <summary/>
-        public TreeSettings(WorldGen.GrowTreeSettings vanillaSettings) 
+        public TreeSettings(WorldGen.GrowTreeSettings vanillaSettings)
         {
             TreeTileType = vanillaSettings.TreeTileType;
 
@@ -115,6 +115,6 @@ namespace CustomTreeLib
             NotLeafyBranchChance = 3,
             BrokenTopChance = 13,
             NoRootChance = 3,
-        }; 
+        };
     }
 }

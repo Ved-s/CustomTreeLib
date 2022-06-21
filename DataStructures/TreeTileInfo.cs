@@ -2,7 +2,7 @@
 using System;
 using Terraria;
 
-namespace CustomTreeLib
+namespace CustomTreeLib.DataStructures
 {
     /// <summary>
     /// Info about tree tile, its style, side and type
@@ -100,7 +100,7 @@ namespace CustomTreeLib
             if (CustomTree.ByTileType.ContainsKey(t.TileType))
                 frameSize = 18;
 
-            int style = (frame.Y & (frameSize * 3)) / frameSize % 3;
+            int style = (frame.Y & frameSize * 3) / frameSize % 3;
             frame.Y /= frameSize * 3;
             frame.X /= frameSize;
 
@@ -293,7 +293,7 @@ namespace CustomTreeLib
         }
 
         /// <summary/>
-        public static bool operator ==(TreeTileInfo a, TreeTileInfo b) 
+        public static bool operator ==(TreeTileInfo a, TreeTileInfo b)
         {
             if (a.Type != b.Type) return false;
             if (a.Side != b.Side) return false;
@@ -308,112 +308,6 @@ namespace CustomTreeLib
 
 
 
-    }
-
-    /// <summary/>
-    public enum TreeTileSide 
-    {
-        /// <summary>
-        /// If tile is left sided, or have branches or roots to the left
-        /// </summary>
-        Left,
-
-        /// <summary>
-        /// If tile have branches or roots at both sides, default value
-        /// </summary>
-        Center,
-
-        /// <summary>
-        /// If tile is right sided, or have branches or roots to the right
-        /// </summary>
-        Right
-    }
-
-    /// <summary/>
-    public enum TreeTileType
-    {
-        /// <summary>
-        /// Unspecified tree tile
-        /// </summary>
-        None,
-
-        /// <summary>
-        /// Straight tree tile
-        /// </summary>
-        Normal,
-
-        /// <summary>
-        /// Tile with less bark on <see cref="TreeTileInfo.Side"/> (Left/Right)
-        /// </summary>
-        LessBark,
-
-        /// <summary>
-        /// Tile with more bark on <see cref="TreeTileInfo.Side"/> (Left/Right)
-        /// </summary>
-        MoreBark,
-
-        /// <summary>
-        /// Tile with branches (All <see cref="TreeTileSide"/>s)
-        /// </summary>
-        WithBranches,
-
-        /// <summary>
-        /// Left or Right branch
-        /// </summary>
-        Branch,
-
-        /// <summary>
-        /// Left or Right branch with leaves
-        /// </summary>
-        LeafyBranch,
-
-        /// <summary>
-        /// Bottom tile with roots (All <see cref="TreeTileSide"/>s)
-        /// </summary>
-        WithRoots,
-
-        /// <summary>
-        /// Left or Right root
-        /// </summary>
-        Root,
-
-        /// <summary>
-        /// Cutted off top tile
-        /// </summary>
-        Top,
-
-        /// <summary>
-        /// Cutted off top with branches
-        /// </summary>
-        TopWithBranches,
-
-        /// <summary>
-        /// Cutted off top with roots
-        /// </summary>
-        TopWithRoots,
-
-        /// <summary>
-        /// Broken tree top
-        /// </summary>
-        BrokenTop,
-
-        /// <summary>
-        /// Tree top with leaves
-        /// </summary>
-        LeafyTop
-    }
-
-    /// <summary/>
-    public enum TreeFoliageType 
-    {
-        /// <summary/>
-        Top,
-
-        /// <summary/>
-        LeftBranch,
-
-        /// <summary/>
-        RightBranch
     }
 
 }

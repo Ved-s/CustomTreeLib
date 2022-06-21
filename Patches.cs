@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework;
+﻿using CustomTreeLib.DataStructures;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
@@ -259,7 +260,7 @@ namespace CustomTreeLib
                 x => x.MatchLdcI4(589)
                 ))
             {
-                Mod.Logger.WarnFormat("Patch error: {0} (DrawTrees:FoliagePatch)");
+                Mod.Logger.Warn("Patch error: DrawTrees:FoliagePatch");
                 return;
             }
 
