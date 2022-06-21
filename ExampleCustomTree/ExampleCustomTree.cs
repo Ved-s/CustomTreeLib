@@ -52,6 +52,9 @@ namespace CustomTreeLib.ExampleCustomTree
 
         public override bool TryGenerate(int x, int y)
         {
+            if (TreeGenPass.Active)
+                return false; // Can be initiated only by command 
+
             return TreeGrowing.GrowTree(x, y, GetTreeSettings());
         }
 

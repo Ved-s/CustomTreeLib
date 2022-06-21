@@ -55,6 +55,11 @@ namespace CustomTreeLib
             }
         }
 
+        public override void OnWorldUnload()
+        {
+            CustomTreeLib.ForceDebug = false;
+        }
+
         public override void ModifyWorldGenTasks(List<GenPass> tasks, ref float totalWeight)
         {
             tasks.Add(new TreeGenPass());

@@ -11,6 +11,9 @@ namespace CustomTreeLib
     public class CustomTreeLib : Mod
 	{
         /// <summary/>
-        public static bool DebugMode => Debugger.IsAttached;
+        public static bool DebugMode => ForceDebug || Debugger.IsAttached;
+
+        /// <summary/>
+        public static bool ForceDebug;
     }
 }
