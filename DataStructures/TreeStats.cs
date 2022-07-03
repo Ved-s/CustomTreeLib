@@ -10,37 +10,37 @@ namespace CustomTreeLib.DataStructures
         /// <summary>
         /// Total tree blocks
         /// </summary>
-        public int TotalBlocks;
+        public int TotalBlocks = 0;
 
         /// <summary>
         /// Total tree branches
         /// </summary>
-        public int TotalBranches;
+        public int TotalBranches = 0;
 
         /// <summary>
         /// Total leafy branches
         /// </summary>
-        public int LeafyBranches;
+        public int LeafyBranches = 0;
 
         /// <summary>
         /// True if tree top exisis and not broken
         /// </summary>
-        public bool HasTop;
+        public bool HasTop = false;
 
         /// <summary>
         /// True if tree top exisis and broken
         /// </summary>
-        public bool BrokenTop;
+        public bool BrokenTop = false;
 
         /// <summary>
         /// True if thee have left root
         /// </summary>
-        public bool LeftRoot;
+        public bool LeftRoot = false;
 
         /// <summary>
         /// True if thee have right root
         /// </summary>
-        public bool RightRoot;
+        public bool RightRoot = false;
 
         /// <summary>
         /// Tree top position
@@ -50,12 +50,16 @@ namespace CustomTreeLib.DataStructures
         /// <summary>
         /// Tree bottom position
         /// </summary>
-        public Point Bottom;
+        public Point Bottom = new(0, 0);
 
         /// <summary>
         /// Tree ground tile type
         /// </summary>
-        public ushort GroundType;
+        public ushort GroundType = 0;
+
+        public TreeStats()
+        {
+        }
 
         /// <summary/>
         public override string ToString()

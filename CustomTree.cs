@@ -598,11 +598,6 @@ namespace CustomTreeLib
             TileID.Sets.PreventsTileRemovalIfOnTopOfIt[Type] = true;
             TileID.Sets.PreventsTileReplaceIfOnTopOfIt[Type] = true;
 
-            //TileObjectData.newTile.CopyFrom(TileObjectData.Style1x1);
-            //TileObjectData.newTile.CoordinateWidth = 20;
-            //TileObjectData.newTile.CoordinateHeights = new[] { 20 };
-            //TileObjectData.addTile(Type);
-
             if (Tree.MapColor.HasValue)
             {
                 if (Tree.MapName is not null)
@@ -669,11 +664,6 @@ namespace CustomTreeLib
         public override void SetStaticDefaults()
         {
             GoreID.Sets.SpecialAI[Type] = 3;
-        }
-
-        public override void OnSpawn(Gore gore, IEntitySource source)
-        {
-            base.OnSpawn(gore, source);
         }
     }
 }

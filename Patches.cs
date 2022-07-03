@@ -33,6 +33,7 @@ namespace CustomTreeLib
             On.Terraria.Item.NewItem_IEntitySource_int_int_int_int_int_int_bool_int_bool_bool += Item_NewItem;
             On.Terraria.WorldGen.GetTreeBottom += WorldGen_GetTreeBottom;
             On.Terraria.WorldGen.IsTileALeafyTreeTop += WorldGen_IsTileALeafyTreeTop;
+            On.Terraria.WorldGen.GetTreeFrame += WorldGen_GetTreeFrame;
 
             IL.Terraria.WorldGen.ShakeTree += WorldGen_ShakeTree;
             IL.Terraria.GameContent.Drawing.TileDrawing.DrawTrees += TileDrawing_DrawTrees;
@@ -51,6 +52,7 @@ namespace CustomTreeLib
             On.Terraria.Item.NewItem_IEntitySource_int_int_int_int_int_int_bool_int_bool_bool -= Item_NewItem;
             On.Terraria.WorldGen.GetTreeBottom -= WorldGen_GetTreeBottom;
             On.Terraria.WorldGen.IsTileALeafyTreeTop -= WorldGen_IsTileALeafyTreeTop;
+            On.Terraria.WorldGen.GetTreeFrame -= WorldGen_GetTreeFrame;
 
             IL.Terraria.WorldGen.ShakeTree -= WorldGen_ShakeTree;
             IL.Terraria.GameContent.Drawing.TileDrawing.DrawTrees -= TileDrawing_DrawTrees;
@@ -60,7 +62,7 @@ namespace CustomTreeLib
         {
             orig(self, tileX, tileY, drawData);
 
-            if (CustomTree.ByTileType.ContainsKey(drawData.typeCache) && drawData.tileFrameY >= 198 && drawData.tileFrameX >= 22)
+            if (CustomTree.ByTileType.ContainsKey(drawData.typeCache) && drawData.tileFrameY >= 162 && drawData.tileFrameX >= 18)
             {
                 TileDrawing_AddSpecialPoint(self, tileX, tileY, 0);
             }
@@ -129,6 +131,14 @@ namespace CustomTreeLib
                 return TreeTileInfo.GetInfo(i, j).Type == TreeTileType.LeafyTop;
 
             return orig(i, j);
+        }
+
+
+        private int WorldGen_GetTreeFrame(On.Terraria.WorldGen.orig_GetTreeFrame orig, Tile t)
+        {
+            if (CustomTree.ByTileType.ContainsKey(t.TileType))
+                return (t.TileFrameY & 18 * 3) / 18 % 3;
+            return orig(t);
         }
 
         private void WorldGen_ShakeTree(ILContext il)

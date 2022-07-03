@@ -48,6 +48,7 @@ namespace CustomTreeLib
                     "    gen <trees> - Generate trees in the world\n" +
                     "    regen <trees> - Regenerate trees in the world (same as clear then gen)\n" +
                     "    count <tree> - Count individual trees in the world\n" +
+                    "    grow <tree> - Tries to grow single tree near player\n" +
                     "");
                 return;
             }
@@ -68,6 +69,9 @@ namespace CustomTreeLib
 
             else if ("count".StartsWith(sub))
                 SubcommandCount(caller, args);
+
+            else if ("grow".StartsWith(sub))
+                SubcommandGrowOne(caller, args);
 
             else
                 caller.Reply($"Unknown subcommand: {sub}");
@@ -173,6 +177,39 @@ namespace CustomTreeLib
                         treePositions.Add(treeTile.Pos);
                 }
             caller.Reply($"Found {found} {tree.Name} trees in the world");
+        }
+
+        static void SubcommandGrowOne(CommandCaller caller, List<string> args)
+        {
+            if (args.Count == 0)
+            {
+                caller.Reply($"Provide tree type to count (ctl list)");
+                return;
+            }
+            string arg = args[0].ToLower();
+            CustomTree tree = CustomTree.LoadedTrees.FirstOrDefault(t => t.Name.ToLower().StartsWith(arg));
+
+            if (tree is null)
+            {
+                caller.Reply($"No matching tree found");
+                return;
+            }
+
+            int x = (int)(Main.LocalPlayer.position.X / 16);
+            int y = (int)(Main.LocalPlayer.position.Y / 16);
+
+            for (int i = 0; i < 8; i++)
+                for (int j = 0; j < 8; j++)
+                {
+                    int dx = i % 2 == 0 ? x + i/2 : x - i/2;
+                    int dy = y + j;
+                    if (WorldGen.InWorld(dx, dy))
+                    {
+                        Tile t = Main.tile[dx, dy];
+                        if (tree.ValidGroundType(t.TileType) && TreeGrowing.GrowTree(dx, dy, tree.GetTreeSettings()))
+                            return;
+                    }
+                }
         }
     }
 }
