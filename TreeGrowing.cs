@@ -408,7 +408,7 @@ namespace CustomTreeLib
                 if (groundCheck)
                 {
                     Tile ground = Framing.GetTileSafely(x, y + 1);
-                    if (ground.TileType != settings.TreeTileType && !settings.GroundTypeCheck(ground.TileType))
+                    if (!ground.HasTile || ground.TileType != settings.TreeTileType && !settings.GroundTypeCheck(ground.TileType))
                     {
                         WorldGen.KillTile(x, y);
                         return;
